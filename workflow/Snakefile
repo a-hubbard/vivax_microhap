@@ -1,0 +1,85 @@
+import glob
+import os
+
+# Identify rules to be executed locally
+localrules:
+    enrichment_consistency_plots, 
+    dilution_consistency_plots, 
+    push_figs, 
+    clean
+
+# Figures
+# All figures, even supplemental ones, are defined here, in the same 
+# fashion, to facilitate easy swapping of inserts between supplemental 
+# material and the main document
+figdir = os.path.join("results", "figs")
+figs = {
+    "enrichment_consistency_plots": "fig2", 
+    "dilution_consistency_plots": "fig3"}
+fig_flag_template = os.path.join(".flags", "push_{fig}")
+rule all:
+    input:
+        expand(os.path.join(figdir,"{fig}.png"), fig=list(figs.values())), 
+        expand(fig_flag_template, fig=list(figs.values()))
+# For others attempting to run the pipeline on their own machine
+rule replicate:
+    input:
+        expand(os.path.join(figdir,"{fig}.{ext}"), fig=figs, ext=["png","pdf"])
+
+# Make figures
+microhap_combined = os.path.join(
+    "resources", 
+    "Microhap_PV_combined-data_2023-06-21")
+rule enrichment_consistency_plots:
+    input:
+        microhap_combined, 
+        code = os.path.join("workflow", "scripts", "consistency_check.R")
+    output: 
+        multiext(os.path.join(figdir,figs["enrichment_consistency_plots"]), 
+            ".pdf", 
+            ".png"), 
+        os.path.join("results", "failed_matches.csv"), 
+        os.path.join("results", "m_check.csv"), 
+        os.path.join("results", "MOI_dfz_check.csv")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: "Rscript {input.code} --out_base {params.basename}"
+vera_library = os.path.join(
+    "resources", 
+    "vera_library_2023-03-18_HemmingSchroeder_UCDavis.csv")
+vera_readcount = os.path.join("resources", "vera_readcount.txt")
+vera_totalreadcount = os.path.join("resources", "vera_totalreadcount.txt")
+vera_metadata = os.path.join("resources", "Pv_samples_Idaho.csv")
+vera_lane_summary = os.path.join("resources", "vera_lane_summary.csv")
+rule dilution_consistency_plots:
+    input:
+        microhap_combined, 
+        vera_library, 
+        vera_readcount, 
+        vera_totalreadcount, 
+        vera_metadata, 
+        vera_lane_summary, 
+        code = os.path.join(
+            "workflow", 
+            "scripts", 
+            "consistency_check_dilutions.R")
+    output: 
+        multiext(os.path.join(figdir,figs["dilution_consistency_plots"]), 
+            ".pdf", 
+            ".png"), 
+        os.path.join("results", "match_fail.csv")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: "Rscript {input.code} --out_base {params.basename}"
+
+# Copy relevant outputs to shared Google Drive
+cloud_dir = "UNCC_GDrive:Alfred-Liz-PV-microhaplotype-files"
+rule push_figs:
+    input: os.path.join(figdir, "{fig}.pdf")
+    output: touch(fig_flag_template)
+    priority: -1
+    shell: "rclone copy {input} {cloud_dir}/figs --drive-shared-with-me"
+
+# Delete all outputs in preparation for rerunning pipeline from nothing
+rule clean:
+    shell: "rm -rf results benchmarks logs .flags"

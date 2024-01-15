@@ -1,0 +1,51 @@
+name: vivax_microhap
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - python
+  - snakemake
+  # Prevent R from updating mid-project
+  - r-base<4.2
+  - r-tidyverse
+  - r-devtools
+  - r-optparse
+  - r-patchwork
+  - r-sf
+  - r-rnaturalearth
+  - r-rnaturalearthdata
+  - r-rstatix
+  - r-ggpubr
+  - r-ggpmisc
+  # Recommended for many R packages
+  - r-codetools
+  # Required for hubutil R package
+  - r-ggnewscale
+  - r-raster
+  - r-rnaturalearth
+  - r-scatterpie
+  - r-sf
+  - r-validate
+  - r-ggraph
+  - r-tidygraph
+  # Required by scatterpie R package, which is required for hubutil
+  - r-rvcheck<=0.1.8
+  # Required for basemaps R package, which is required for hubutil
+  - r-sf
+  - r-slippymath
+  - r-httr
+  - r-curl
+  - r-pbapply
+  - r-magick
+  - r-raster
+  - r-stars
+  # Required for hubpopgen R package
+  - r-adegenet
+  - r-pophelper
+  - r-validate
+  - r-RcppArmadillo
+  # Required for rmaverick R package, which is required for hubpopgen
+  - r-Rcpp
+  - r-coda
+  - r-gridExtra
