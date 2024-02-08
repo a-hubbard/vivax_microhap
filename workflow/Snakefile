@@ -3,11 +3,45 @@ import os
 
 # Identify rules to be executed locally
 localrules:
+    refmt_primers, 
+    dwnld_ref, 
+    unzip_ref, 
+    index_ref_bwa, 
+    index_ref_samtools, 
+    primers2fastq, 
+    find_sa_coords, 
+    map_primers, 
+    sam2bam, 
+    bam2bed, 
+    captured_seq_bounds, 
+    extract_captured_seq, 
+    investigate_mapping, 
+    targets_bed2gff, 
+    assess_read_counts, 
+    list_fastqs, 
+    postproc_dada2,  
+    check_snvs_indels, 
+    asv2cigar, 
+    assess_microhap_quantity, 
+    tidy_microhap, 
     enrichment_consistency_plots, 
     dilution_consistency_plots, 
+    push_results_notebooks, 
     push_figs, 
     clean
 
+# Notebooks
+rendered_notebook_dir = os.path.join("results", "notebooks")
+notebooks = {}
+notebook_basenames = [
+    "investigate_mapping", 
+    "read_counts", 
+    "check_snvs_indels", 
+    "microhap_quantity", 
+    "tidy_microhap"]
+for nb in notebook_basenames:
+    notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
+nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
 # Figures
 # All figures, even supplemental ones, are defined here, in the same 
 # fashion, to facilitate easy swapping of inserts between supplemental 
@@ -19,12 +53,505 @@ figs = {
 fig_flag_template = os.path.join(".flags", "push_{fig}")
 rule all:
     input:
+        expand("{nb}.{ext}", nb=list(notebooks.values()), ext=["pdf","md"]), 
+        expand(nb_flag_template, nb=notebook_basenames), 
         expand(os.path.join(figdir,"{fig}.png"), fig=list(figs.values())), 
         expand(fig_flag_template, fig=list(figs.values()))
 # For others attempting to run the pipeline on their own machine
 rule replicate:
     input:
+        expand(
+            "{nb}.{ext}", 
+            nb=list(notebooks.values()), 
+            ext=["nb.html","pdf","md"]), 
         expand(os.path.join(figdir,"{fig}.{ext}"), fig=figs, ext=["png","pdf"])
+
+# Reformat and filter primers
+sd_id_file = os.path.join("resources", "id_file.txt")
+primer_info = os.path.join(
+    "resources", 
+    "Microhaplotype primers_fixedRCpf_2023-03-02.xlsx")
+primers_tsv = os.path.join("results", "primers.tsv")
+ampseq_dir = os.path.join("results", "AmpSeq")
+fwd_primers = os.path.join(ampseq_dir, "fwd_primers.fasta")
+rev_primers = os.path.join(ampseq_dir, "rev_primers.fasta")
+rule refmt_primers:
+    input:
+        sd_id_file = sd_id_file, 
+        primer_info = primer_info, 
+        code = os.path.join("workflow", "scripts", "refmt_primers.R")
+    output:
+        primers_tsv = primers_tsv, 
+        fwd_primers = fwd_primers, 
+        rev_primers = rev_primers
+    shell:
+        "Rscript {input.code} --sd_id_file {input.sd_id_file} --primer_info "
+        "'{input.primer_info}' --primers_tsv {output.primers_tsv} "
+        "--fwd_primers {output.fwd_primers} --rev_primers {output.rev_primers}"
+
+# Get primer locations and target reference sequences
+# Download reference genome
+ref_genome_zip = os.path.join("results", "GCA_900093555.2.zip")
+rule dwnld_ref:
+    output: temp(ref_genome_zip)
+    shell: 
+        "datasets download genome accession GCA_900093555.2 --filename {output}"
+ref_genome_dir = os.path.join("results", "ref_genome")
+ref_genome = os.path.join(
+    ref_genome_dir, 
+    "GCA_900093555.2", 
+    "GCA_900093555.2_GCA_900093555_genomic.fna")
+rule unzip_ref:
+    input: ref_genome_zip
+    output: 
+        ref_genome, 
+        os.path.join(ref_genome_dir, "README.md"), 
+        os.path.join(ref_genome_dir, "assembly_data_report.jsonl"), 
+        os.path.join(ref_genome_dir, "dataset_catalog.json")
+    shell:
+        """
+        unzip {input} -d {ref_genome_dir}
+        mv {ref_genome_dir}/ncbi_dataset/data/* {ref_genome_dir}/
+        rm -r {ref_genome_dir}/ncbi_dataset
+        """
+# Necessary for mapping
+ref_genome_index = multiext(ref_genome, ".amb", ".ann", ".bwt", ".pac", ".sa")
+rule index_ref_bwa:
+    input: ref_genome
+    output: ref_genome_index
+    shell: "bwa index {input}"
+# Necessary for AmpSeQC
+ref_genome_fai = ref_genome + ".fai"
+rule index_ref_samtools:
+    input: ref_genome
+    output: ref_genome_fai
+    shell: "samtools faidx {input}"
+# Create FASTQ with primer sequences
+prim_map_dir = os.path.join("results", "primer_mapping")
+primers_fq = os.path.join(prim_map_dir, "primers.fastq")
+rule primers2fastq:
+    input: primers_tsv
+    output: primers_fq
+    run:
+        with open(input[0], 'r') as primer_list:
+            with open(output[0], 'w') as out_fq:
+                # Skip header
+                primer_list.readline()
+                for line in primer_list:
+                    elements = line.rstrip().split()
+                    target = elements[0]
+                    fwd_primer = elements[1]
+                    rev_primer = elements[2]
+                    out_fq.write("@" + target + "_forward\n")
+                    out_fq.write(fwd_primer + '\n')
+                    out_fq.write("+\n")
+                    out_fq.write("~" * len(fwd_primer) + '\n')
+                    out_fq.write("@" + target + "_reverse\n")
+                    out_fq.write(rev_primer + '\n')
+                    out_fq.write("+\n")
+                    out_fq.write("~" * len(rev_primer) + '\n')
+# In the next two steps, aln and samse are used to employ the BWA-
+# backtrack algorithm, which is meant for sequences less than 100 bp, 
+# and especially less than 70 bp
+sa_coords = os.path.join(prim_map_dir, "mapping.sai")
+rule find_sa_coords:
+    input: 
+        ref_genome_index, 
+        ref = ref_genome, 
+        query = primers_fq
+    output: sa_coords
+    shell: "bwa aln {input.ref} {input.query} > {output}"
+primer_mapping_sam = sa_coords[:-3] + "sam"
+rule map_primers:
+    input:
+        ref_genome_index, 
+        ref = ref_genome, 
+        query = primers_fq, 
+        sa_coords = sa_coords
+    output: primer_mapping_sam
+    shell: "bwa samse {input.ref} {input.sa_coords} {input.query} > {output}"
+rule sam2bam:
+    input: "{filename}.sam"
+    output: temp("{filename}.bam")
+    shell: "samtools view -h -b {input} > {output}"
+rule bam2bed:
+    input: "{filename}.bam"
+    output: "{filename}.bed"
+    shell: "bedtools bamtobed -i {input} > {output}"
+# Convert primer coordinates to target coordinates, both with and 
+# without primers
+primer_mapping_bed = primer_mapping_sam[:-3] + "bed"
+trg_coords_wprimers = os.path.join(
+    prim_map_dir, 
+    "captured_seq_coords_wprimers.bed")
+trg_coords_noprimers = os.path.join(
+    prim_map_dir, 
+    "captured_seq_coords_noprimers.bed")
+rule captured_seq_bounds:
+    input: primer_mapping_bed
+    output: 
+        coords_wprimers = trg_coords_wprimers, 
+        coords_noprimers = trg_coords_noprimers
+    run:
+        with open(input[0], 'r') as primer_coord_f:
+            with open(output.coords_wprimers, 'w') as trg_coord_wprimers_f, \
+                    open(output.coords_noprimers, 'w') as trg_coord_noprimers_f:
+                # The following logic assumes the bed file is sorted 
+                # such that forward primers are before reverse primers 
+                # and all hits for a given primer pair are grouped 
+                # together. Due to the small size of the bed file in 
+                # question, this assumption was only verified by 
+                # visual inspection.
+                chrom = ""
+                target = ""
+                for line in primer_coord_f:
+                    elements = line.rstrip().split()
+                    if elements[3].split('_')[-1] == "forward":
+                        if elements[3][:-8] == target:
+                            raise ValueError(
+                                "Forward primer for " + elements[3][:-8] +\
+                                " is a duplicate")
+                        chrom = elements[0]
+                        target = elements[3][:-8]
+                        fwd_start = int(elements[1])
+                        fwd_end = int(elements[2])
+                    if elements[3].split('_')[-1] == "reverse":
+                        if elements[3][:-8] != target:
+                            raise ValueError(
+                                "Reverse primer for " + elements[3][:-8] +\
+                                " does not match previous forward primer, " +\
+                                "or is a duplicate")
+                        elif elements[0] != chrom:
+                            raise ValueError(
+                                "Forward and reverse primer hits for " +\
+                                elements[3][:-8] +\
+                                " are on different chromosomes")
+                        rev_start = int(elements[1])
+                        rev_end = int(elements[2])
+                        if fwd_start < rev_start:
+                            start_pos_wprimers = str(fwd_start)
+                            end_pos_wprimers = str(rev_end)
+                            start_pos_noprimers = str(fwd_end)
+                            end_pos_noprimers = str(rev_start)
+                        else:
+                            start_pos_wprimers = str(rev_start)
+                            end_pos_wprimers = str(fwd_end)
+                            start_pos_noprimers = str(rev_end)
+                            end_pos_noprimers = str(fwd_start)
+                        trg_coord_wprimers_f.write(
+                            '\t'.join([
+                                chrom,
+                                start_pos_wprimers,
+                                end_pos_wprimers,
+                                target+'\n']))
+                        trg_coord_noprimers_f.write(
+                            '\t'.join([
+                                chrom,
+                                start_pos_noprimers,
+                                end_pos_noprimers,
+                                target+'\n']))
+                        chrom = ""
+                        target = ""
+# AmpSeQC requires the targets to be formatted as GFF
+trg_annot = os.path.join(prim_map_dir, "targets.gff")
+rule targets_bed2gff:
+    input: trg_coords_wprimers
+    output: trg_annot
+    run:
+        with open(input[0], 'r') as bed_f:
+            with open(output[0], 'w') as gff_f:
+                gff_f.write("##gff-version 3\n")
+                for line in bed_f:
+                    elements = line.rstrip().split()
+                    chrom = elements[0]
+                    start_pos = str(int(elements[1]) + 1)
+                    end_pos = elements[2]
+                    target = elements[3]
+                    gff_f.write(
+                        '\t'.join([
+                            chrom,
+                            "Pv_GTSeq",
+                            "amplicon",
+                            start_pos,
+                            end_pos,
+                            '.',
+                            '+',
+                            '.',
+                            "ID="+target+'\n']))
+# Extract sequence captured by primers from reference
+captured_seq = os.path.join(prim_map_dir, "captured_seq.fasta")
+rule extract_captured_seq:
+    input: 
+        ref_genome_index, 
+        ref = ref_genome, 
+        bed = trg_coords_noprimers
+    output: captured_seq
+    shell: 
+        "bedtools getfasta -fi {input.ref} -bed {input.bed} -nameOnly > "
+        "{output}"
+# Check mapping for issues
+rule investigate_mapping:
+    input:
+        primers_tsv, 
+        trg_coords_noprimers, 
+        code = os.path.join("workflow", "notebooks", "investigate_mapping.Rmd")
+    output: 
+        multiext(notebooks["investigate_mapping"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Run AmpSeQC pipeline
+# Create dictionary with sample ID keys and lists containing the forward 
+# and reverse FASTQs as values
+raw_seq_dir = os.path.join("resources", "seq_output")
+sample_fastqs = {}
+for fq in glob.glob(os.path.join(raw_seq_dir,"*.fastq")):
+    fq_elements = os.path.basename(fq).split('_')
+    if fq_elements[-2] == "R1" and fq_elements[0] != "Undetermined":
+        # Check assumption for next test
+        if len(fq_elements) != 7:
+            raise ValueError(
+                "FASTQ file name does not meet expectations:" + fq)
+        # The "OLD" and "NEW" samples are the same, except the SNP 
+        # markers were included for the NEW. However, the SNP markers 
+        # did not perform well, and there is one more sample in the 
+        # OLD set, so these are used.
+        elif "NEW" in fq_elements[2]:
+            continue
+        sample_id = '_'.join(fq_elements[:-4])
+        r2_fq = fq.replace('R1', 'R2')
+        sample_fastqs[sample_id] = [fq, r2_fq]
+# Path to AmpSeQC script
+ampseqc = "~/AmpSeQC/AmpSeQC.py"
+ampseqc_dir = os.path.join("results", "AmpSeQC")
+read_counts = os.path.join(ampseqc_dir, "read_counts.tsv")
+rule run_ampseqc:
+    input:
+        ref_genome_fai, 
+        targets = trg_annot, 
+        fastqs = [
+            fq for fq_pair in list(sample_fastqs.values()) for fq in fq_pair], 
+        ref = ref_genome
+    params:
+        fastq_args = lambda wildcards, input: 
+            "../../" + " ../../".join(input.fastqs)
+    # None of the sample-specific outputs are defined here because 
+    # these don't seem to be guaranteed to be produced for every sample
+    output:
+        read_counts = read_counts
+    resources:
+        time = 40, 
+        mem_mb = 2000
+    threads: 2
+    benchmark: os.path.join("benchmarks", "run_ampseqc.tsv")
+    conda: "ampseqc"
+    shell:
+        # To get AmpSeQC to run properly, I had to add the arguments 
+        # -a AGATCGGAAGAGC -a2 GATCGTCGGACTG to the Trim Galore step. 
+        # These are the first 13 bases of the reverse complements of 
+        # our reverse and forward adapters, respectively. Although this 
+        # behavior does not make sense to me, it appears that Trim 
+        # Galore checks both R1 and R2 for AGATCGGAAGAGC, leading it to 
+        # only trim the R1 reads, leading to a length mismatch between 
+        # R1 and R2, which in turn causes them to be considered 
+        # "improper" pairs and get filtered out by samtools. Manually 
+        # specifying the adapters resolves this issue.
+        """
+        cd {ampseqc_dir}
+        python {ampseqc} -c ../../{output.read_counts} -r ../../{input.ref} -a \
+            ../../{input.targets} --no_fastqc -p {threads} {params.fastq_args}
+        """
+sd_read_counts = os.path.join("resources", "vera_readcount.txt")
+rule assess_read_counts:
+    input:
+        read_counts, 
+        sd_read_counts, 
+        code = os.path.join("workflow", "notebooks", "read_counts.Rmd")
+    output: multiext(notebooks["read_counts"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Run AmpSeq
+# Create TSV file listing FASTQs
+fastq_list = os.path.join(ampseq_dir, "fastq_list.tsv")
+rule list_fastqs:
+    output: fastq_list
+    run:
+        with open(output[0], 'w') as out_f:
+            for s_id in sample_fastqs.keys():
+                out_f.write(
+                    '\t'.join([
+                        s_id,
+                        sample_fastqs[s_id][0],
+                        sample_fastqs[s_id][1]+'\n']))
+ampseq_tool_dir = "~/malaria-amplicon-pipeline"
+ampseq_seqtab = os.path.join(ampseq_dir, "run_dada2", "seqtab.tsv")
+ampseq_bimeras = os.path.join(ampseq_dir, "run_dada2", "ASVBimeras.txt")
+ampseq_reads_summ = os.path.join(ampseq_dir, "run_dada2", "reads_summary.txt")
+ampseq_trim_reports = []
+ampseq_preprocessed_fqs = []
+ampseq_prim_fqs = []
+for s_id in sample_fastqs.keys():
+    ampseq_trim_reports.append(
+        os.path.join(
+            ampseq_dir,
+            "preprocess_fq",
+            os.path.basename(sample_fastqs[s_id][0])+\
+                "_trimming_report.txt"))
+    ampseq_trim_reports.append(
+        os.path.join(
+            ampseq_dir,
+            "preprocess_fq",
+            os.path.basename(sample_fastqs[s_id][1])+\
+                "_trimming_report.txt"))
+    ampseq_preprocessed_fqs.append(
+        os.path.join(
+            ampseq_dir,
+            "preprocess_fq",
+            s_id+"_val_1.fq.gz"))
+    ampseq_preprocessed_fqs.append(
+        os.path.join(
+            ampseq_dir,
+            "preprocess_fq",
+            s_id+"_val_2.fq.gz"))
+    ampseq_prim_fqs.append(
+        os.path.join(ampseq_dir,"prim_fq",s_id+"_prim_1.fq.gz"))
+    ampseq_prim_fqs.append(
+        os.path.join(ampseq_dir,"prim_fq",s_id+"_prim_2.fq.gz"))
+# The FASTQs in run_dada2/filtered/ are not included in these outputs 
+# because they are not guaranteed to be created for each sample and 
+# the added safety of specifying them is not worth the added trouble of 
+# doing so
+ampseq_outputs = [
+    os.path.join(ampseq_dir,"preprocess_meta.txt"), 
+    os.path.join(ampseq_dir,"prim_meta.txt"), 
+    os.path.join(ampseq_dir,"stderr.txt"), 
+    os.path.join(ampseq_dir,"stdout.txt"), 
+    ampseq_bimeras, 
+    os.path.join(ampseq_dir,"run_dada2","errF.png"), 
+    os.path.join(ampseq_dir,"run_dada2","errR.png"), 
+    ampseq_reads_summ, 
+    ampseq_seqtab, 
+    os.path.join(ampseq_dir,"run_dada2","sequences_barplot.png"), 
+    os.path.join(ampseq_dir,"run_dada2","zeroReadSamples.txt"), 
+    ampseq_trim_reports, 
+    ampseq_preprocessed_fqs, 
+    ampseq_prim_fqs]
+rule run_ampseq:
+    input:
+        fastq_list = fastq_list, 
+        fwd_primers = fwd_primers, 
+        rev_primers = rev_primers
+    output: ampseq_outputs
+    resources:
+        time = 60, 
+        mem_mb = 64000
+    threads: 8
+    benchmark: os.path.join("benchmarks", "run_ampseq.tsv")
+    conda: "ampseq"
+    shell:
+        # Due to issues with the argument passing from 
+        # AmpliconPipeline.py to runDADA2.R, it is necessary to specify 
+        # some of the DADA2 parameters even though we are just using 
+        # the pipeline defaults. Also, I think the Neafsey group used a 
+        # trimRight of 2 (default is 0), but I'm not sure because they 
+        # describe this as applying to the 5' end in the documentation 
+        # of their scripts, despite the supplemental methods in 
+        # LaVerriere et al. (2022) and the DADA2 documentation 
+        # suggesting this would be the 3' end (as well as common sense 
+        # - it's called trimRight...). Plus, Paulo Manrique's tutorial 
+        # clearly uses a value of 2,2.
+        #
+        # Also, for reasons explained in run_ampseqc, above, I had to 
+        # add -a AGATCGGAAGAGC -a2 GATCGTCGGACTG to the Trim Galore 
+        # step.
+        "python {ampseq_tool_dir}/AmpliconPipeline.py --path_to_meta "
+        "{input.fastq_list} --pr1 {input.fwd_primers} --pr2 "
+        "{input.rev_primers} --Class parasite --trimRight '2,2' --minLen 30 "
+        "--max_consist 10 --omegaA '1e-120' --justConcatenate 0"
+asvtab = os.path.join(ampseq_dir, "asvtab.tsv")
+asv_fastas = os.path.join(ampseq_dir, "ASVSeqs.fasta")
+rule postproc_dada2:
+    input:
+        seqtab = ampseq_seqtab, 
+        bimeras = ampseq_bimeras, 
+        ref = captured_seq
+    output:
+        asv_fastas, 
+        asvtab = asvtab
+    conda: "ampseq"
+    shell:
+        "Rscript {ampseq_tool_dir}/postProc_dada2.R -s {input.seqtab} -ref "
+        "{input.ref} -b {input.bimeras} -o {output.asvtab} --fasta --strain "
+        "PvP01 --indel_filter 0.895"
+# Assess whether the SNV/indel edit distances are high enough that we 
+# should do filtering
+rule check_snvs_indels:
+    input:
+        asvtab, 
+        trg_coords_noprimers, 
+        code = os.path.join("workflow", "notebooks", "check_snvs_indels.Rmd")
+    output: multiext(notebooks["check_snvs_indels"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+asv2cigar_dir = os.path.join(ampseq_dir, "asv2cigar")
+seqtab_cigar = os.path.join(asv2cigar_dir, "seqtab_cigar.tsv")
+asv2cigar_tab = os.path.join(asv2cigar_dir, "asv2cigar_tab.tsv")
+rule asv2cigar:
+    input:
+        asv_fastas = asv_fastas, 
+        asvtab = asvtab, 
+        seqtab = ampseq_seqtab, 
+        ref = captured_seq
+    output:
+        seqtab_cigar = seqtab_cigar, 
+        asv2cigar_tab = asv2cigar_tab
+    params:
+        alignments_dir = os.path.join(asv2cigar_dir, "alignments")
+    conda: "ampseq"
+    shell:
+        "python {ampseq_tool_dir}/ASV_to_CIGAR.py --asv_to_cigar "
+        "{output.asv2cigar_tab} --alignments {params.alignments_dir} --amp_db "
+        "{input.ref} --exclude_bimeras {input.asv_fastas} --max_snv_dist 50 "
+        "--max_indel_dist 17 {input.asvtab} {input.seqtab} "
+        "{output.seqtab_cigar}"
+# Analyze AmpSeq output
+rule assess_microhap_quantity:
+    input:
+        ampseq_reads_summ, 
+        seqtab_cigar, 
+        code = os.path.join("workflow", "notebooks", "microhap_quantity.Rmd")
+    output: multiext(notebooks["microhap_quantity"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Tidy and filter microhaplotypes
+microhap_tidy = os.path.join("results", "microhap_tidy.csv")
+rule tidy_microhap:
+    input:
+        seqtab_cigar, 
+        asv2cigar_tab, 
+        code = os.path.join("workflow", "notebooks", "tidy_microhap.Rmd")
+    output: 
+        multiext(notebooks["tidy_microhap"], ".nb.html", ".pdf", ".md"), 
+        microhap_tidy
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
 
 # Make figures
 microhap_combined = os.path.join(
@@ -74,6 +601,11 @@ rule dilution_consistency_plots:
 
 # Copy relevant outputs to shared Google Drive
 cloud_dir = "UNCC_GDrive:Alfred-Liz-PV-microhaplotype-files"
+rule push_results_notebooks:
+    input: os.path.join(rendered_notebook_dir, "{nb}.nb.html")
+    output: touch(nb_flag_template)
+    priority: -1
+    shell: "rclone copy {input} {cloud_dir}/notebooks --drive-shared-with-me"
 rule push_figs:
     input: os.path.join(figdir, "{fig}.pdf")
     output: touch(fig_flag_template)

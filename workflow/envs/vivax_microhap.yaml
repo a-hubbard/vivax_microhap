@@ -5,7 +5,22 @@ channels:
   - nodefaults
 dependencies:
   - python
-  - snakemake
+  # As of version 8.2.0, it does not seem possible to configure 
+  # Snakemake to work with the UNC Charlotte cluster. After following 
+  # the necessary steps to switch from the deprecated --cluster 
+  # argument to the new Slurm executor plugin, I received a 
+  # WorkflowError that my username is not valid. After unsuccessful  
+  # attempts to resolve this and find useful information online, I 
+  # concluded that this issue must be caused by a bug with either 
+  # Snakemake or the executor plugin. Hopefully this will be resolved 
+  # in a future version, but for now the only solution I am aware of is 
+  # to revert the version to before the switch to backend plugins that 
+  # came with Snakemake 8.0.0.
+  - snakemake<8.0.0
+  - ncbi-datasets-cli
+  - bwa
+  - samtools
+  - bedtools
   # Prevent R from updating mid-project
   - r-base<4.2
   - r-tidyverse
@@ -18,6 +33,7 @@ dependencies:
   - r-rstatix
   - r-ggpubr
   - r-ggpmisc
+  - r-seqinr
   # Recommended for many R packages
   - r-codetools
   # Required for hubutil R package
