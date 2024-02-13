@@ -24,6 +24,7 @@ localrules:
     asv2cigar, 
     assess_microhap_quantity, 
     tidy_microhap, 
+    estimate_diversity, 
     enrichment_consistency_plots, 
     dilution_consistency_plots, 
     push_results_notebooks, 
@@ -38,7 +39,8 @@ notebook_basenames = [
     "read_counts", 
     "check_snvs_indels", 
     "microhap_quantity", 
-    "tidy_microhap"]
+    "tidy_microhap", 
+    "diversity"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
 nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
@@ -538,15 +540,39 @@ rule assess_microhap_quantity:
         """
 
 # Tidy and filter microhaplotypes
+vera_library = os.path.join(
+    "resources", 
+    "vera_library_2023-03-18_HemmingSchroeder_UCDavis.csv")
+vera_metadata = os.path.join("resources", "Pv_samples_Idaho.csv")
+vera_lane_summary = os.path.join("resources", "vera_lane_summary.csv")
+gbpcd_meta = os.path.join("resources", "GBPCD_meta.csv")
 microhap_tidy = os.path.join("results", "microhap_tidy.csv")
 rule tidy_microhap:
     input:
         seqtab_cigar, 
         asv2cigar_tab, 
+        vera_library, 
+        vera_metadata, 
+        vera_lane_summary, 
+        gbpcd_meta, 
         code = os.path.join("workflow", "notebooks", "tidy_microhap.Rmd")
     output: 
         multiext(notebooks["tidy_microhap"], ".nb.html", ".pdf", ".md"), 
         microhap_tidy
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Compute measures of genetic diversity
+rule estimate_diversity:
+    input:
+        microhap_tidy, 
+        asv_fastas, 
+        code = os.path.join("workflow", "notebooks", "diversity.Rmd")
+    output: 
+        multiext(notebooks["diversity"], ".nb.html", ".pdf", ".md")
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -571,13 +597,8 @@ rule enrichment_consistency_plots:
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: "Rscript {input.code} --out_base {params.basename}"
-vera_library = os.path.join(
-    "resources", 
-    "vera_library_2023-03-18_HemmingSchroeder_UCDavis.csv")
 vera_readcount = os.path.join("resources", "vera_readcount.txt")
 vera_totalreadcount = os.path.join("resources", "vera_totalreadcount.txt")
-vera_metadata = os.path.join("resources", "Pv_samples_Idaho.csv")
-vera_lane_summary = os.path.join("resources", "vera_lane_summary.csv")
 rule dilution_consistency_plots:
     input:
         microhap_combined, 

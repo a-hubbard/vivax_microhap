@@ -143,6 +143,74 @@ n_distinct(mh_data_filtered$sample_id)
     ## [1] 66
 
 ``` r
+# Read in sample metadata ----------------------------------------------
+vera_lane_summary <- read_csv(
+    inp$vera_lane_summary, 
+    col_types = cols(.default = col_character()), 
+    progress = FALSE
+  ) %>%
+  filter(str_detect(Sample, "OLD")) %>%
+  separate(`Barcode sequence`, c("i7_seq", "i5_seq"), sep = "\\+")
+vera_library <- read_csv(
+    inp$vera_library, 
+    col_names = c(
+      "tube", 
+      "lib_name", 
+      "well", 
+      "i7_name", 
+      "i7_seq", 
+      "i5_name", 
+      "i5_seq"
+    ), 
+    col_types = cols(.default = col_character()), 
+    skip = 1, 
+    progress = FALSE
+  ) %>%
+  filter(str_detect(lib_name, "old")) %>%
+  select(well, i7_seq, i5_seq)
+pv_samples_idaho <- read_csv(
+    inp$pv_samples_idaho, 
+    col_types = cols(
+      .default = col_double(), 
+      SeqPlate_Well = col_character(), 
+      `Sample Name` = col_character(), 
+      Dilution = col_character()
+    ), 
+    progress = FALSE
+  ) %>%
+  mutate(SeqPlate_Well = str_sub(SeqPlate_Well, start = 4L)) %>%
+  rename(UCI_SID = `Sample Name`)
+gbpcd_meta <- read_csv(
+  inp$gbpcd_meta, 
+  col_types = cols(.default = col_character(), Age = col_integer()), 
+  progress = FALSE
+)
+
+# Join sample metadata into one tibble, then to microhaplotypes --------
+sample_metadata <- left_join(
+    vera_lane_summary, 
+    vera_library, 
+    by = c("i7_seq", "i5_seq")
+  ) %>%
+  select(-i7_seq, -i5_seq) %>%
+  left_join(pv_samples_idaho, by = c("well" = "SeqPlate_Well")) %>%
+  left_join(gbpcd_meta, by = "UCI_SID")
+filter(sample_metadata, is.na(DBS_ID))
+```
+
+    ## # A tibble: 3 × 11
+    ##   Sample       well  UCI_SID Dilution ParasiteDensity CT_Pv CT_Pf18s CT_PfvarATS
+    ##   <chr>        <chr> <chr>   <chr>              <dbl> <dbl>    <dbl>       <dbl>
+    ## 1 PV_SWGA_OLD… F07   <NA>    <NA>                  NA    NA       NA          NA
+    ## 2 PV_SWGA_OLD… F08   <NA>    <NA>                  NA    NA       NA          NA
+    ## 3 PV_SWGA_OLD… C12   Sal1    0.11111…              NA    NA       NA          NA
+    ## # ℹ 3 more variables: DBS_ID <chr>, Age <int>, Sex <chr>
+
+``` r
+mh_data_filtered <- mh_data_filtered %>%
+  left_join(sample_metadata, by = c("sample_id" = "Sample")) %>%
+  mutate(pop = str_split_i(DBS_ID, "-", 1))
+
 # Save filtered data ---------------------------------------------------
 mh_data_filtered %>%
   # Calculate MOI. It would be more logical to do this in moi.Rmd, but 
