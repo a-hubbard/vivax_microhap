@@ -102,7 +102,7 @@ reads_by_step
     ## 4 denoisedR     3027157
     ## 5 merged        3000987
     ## 6 nonchim       2994741
-    ## 7 final         2763299
+    ## 7 final         2763284
 
 This table shows the total number of reads after each step in the DADA2
 part of the pipeline plus the final filtering done by `ASV_to_CIGAR.py`.

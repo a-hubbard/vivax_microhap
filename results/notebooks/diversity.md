@@ -62,11 +62,11 @@ poppr::poppr(mh_data_gd) %>%
 ```
 
     ##     Pop  N MLG  Hexp
-    ## 1  ABOB  5   5 0.490
-    ## 2  ALPC 14  14 0.308
-    ## 3  UKUN  4   4 0.291
-    ## 4  VI89 40  40 0.283
-    ## 5 Total 63  63 0.320
+    ## 1  ABOB  5   5 0.480
+    ## 2  ALPC 14  14 0.306
+    ## 3  UKUN  4   4 0.281
+    ## 4  VI89 40  40 0.280
+    ## 5 Total 63  63 0.318
 
 This table gives the number of individuals, the number of multi-locus
 genotypes (MLGs) observed in those individuals, and Nei’s expected

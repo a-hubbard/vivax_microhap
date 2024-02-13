@@ -523,8 +523,8 @@ rule asv2cigar:
     shell:
         "python {ampseq_tool_dir}/ASV_to_CIGAR.py --asv_to_cigar "
         "{output.asv2cigar_tab} --alignments {params.alignments_dir} --amp_db "
-        "{input.ref} --exclude_bimeras {input.asv_fastas} --max_snv_dist 50 "
-        "--max_indel_dist 17 {input.asvtab} {input.seqtab} "
+        "{input.ref} --min_reads 6 --exclude_bimeras {input.asv_fastas} "
+        "--max_snv_dist 50 --max_indel_dist 17 {input.asvtab} {input.seqtab} "
         "{output.seqtab_cigar}"
 # Analyze AmpSeq output
 rule assess_microhap_quantity:
