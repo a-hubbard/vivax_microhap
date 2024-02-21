@@ -1,0 +1,217 @@
+---
+title: Linkage Disequilibrium Test for Microhaplotype Data
+author: Alfred Hubbard
+output:
+  html_notebook: default
+  pdf_document: default
+  github_document: default
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+library(hubpopgen)
+library(pegas)
+library(poppr)
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(magrittr)
+library(purrr)
+library(readr)
+library(stringr)
+library(tibble)
+
+# Don't include code in PDF output
+opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+# Set seed for reproducibility
+set.seed(59404051)
+
+# Hardcode parameters. These are not passed as shell arguments because 
+# hardcoded values facilitate development and this document is not 
+# meant to be usable with other projects.
+inp <- list(
+  ld_res_poppr = "../../results/ld_res_poppr.rds", 
+  microhap_gd = "../../results/microhap/microhap_filtered4ld_gd.rds", 
+  microhap_tidy = "../../results/microhap/microhap_filtered4ld.csv", 
+  trgs2filter = "../../results/trgs2filter/ld.csv"
+)
+```
+
+```{r warning = FALSE}
+# Read in data and covert to the loci class ----------------------------
+mh_data_gd <- read_rds(inp$microhap_gd)
+mh_data_l <- pegas::genind2loci(mh_data_gd)
+
+# Create tibble of locus name/number pairs -----------------------------
+locus_nums <- attr(mh_data_l, "locicol")
+locus_names <- names(mh_data_l)[locus_nums]
+locus_num_name_key <- tibble(locus_name = locus_names, locus_num = locus_nums)
+ld_res_pegas <- combn(locus_nums, 2) %>%
+  t() %>%
+  as_tibble() %>%
+  rename(locus_a_num = V1, locus_b_num = V2) %>%
+  left_join(locus_num_name_key, by = c("locus_a_num" = "locus_num")) %>%
+  rename(locus_a_name = locus_name) %>%
+  left_join(locus_num_name_key, by = c("locus_b_num" = "locus_num")) %>%
+  rename(locus_b_name = locus_name)
+
+# Read in microhaplotype data table with metadata ----------------------
+mh_data <- read_csv(
+  inp$microhap_tidy,  
+  col_types = cols(
+    .default = col_character(), 
+    n_read = col_integer(), 
+    n_samp_wdata = col_integer(), 
+    n_trg_wdata = col_integer(), 
+    ParasiteDensity = col_double(), 
+    CT_Pv = col_double(), 
+    CT_Pf18s = col_double(), 
+    CT_PfvarATS = col_double(), 
+    Age = col_integer(), 
+    n_hap = col_integer(), 
+    moi = col_integer()
+  ), 
+  progress = FALSE
+)
+
+# Join and filter by chromosome information ----------------------------
+chrom_info <- mh_data %>%
+  select(target, chrom) %>%
+  distinct()
+ld_res_pegas <- ld_res_pegas %>%
+  left_join(chrom_info, by = c("locus_a_name" = "target")) %>%
+  rename(chrom_a = chrom) %>%
+  left_join(chrom_info, by = c("locus_b_name" = "target")) %>%
+  rename(chrom_b = chrom) %>%
+  # Regardless of what the test shows, we know that targets on 
+  # different chromosomes cannot be physically linked
+  filter(chrom_a == chrom_b) %>%
+  select(-chrom_a, -chrom_b)
+
+# Estimate LD ----------------------------------------------------------
+ld_res_pegas <- ld_res_pegas %>%
+  # Note that pegas prints a warning message about unphased genotypes 
+  # when an individual is missing data at a given locus, regardless of 
+  # whether the genotypes actually are unphased (or, indeed, regardless 
+  # of whether the ploidy is even greater than 1)
+  mutate(
+    ld_res = map2(
+      locus_a_num, 
+      locus_b_num, 
+      # Note that while in the locicol attribute the pop column is 
+      # included in locus numbering (meaning the first locus column is 
+      # two), this function wants the locus numbering to start at 1...
+      ~pegas::LD(mh_data_l, locus = c(.x - 1, .y - 1))
+    )
+  ) %>%
+  mutate(T2_pval = map_dbl(ld_res, pluck, "T2", "P-val")) %>%
+  # Remove NA p-values, which indicate at least one of the loci only 
+  # has one allele
+  filter(! is.na(T2_pval))
+
+# Visualize distribution of p-values -----------------------------------
+ld_res_pegas %>%
+  ggplot(mapping = aes(x = T2_pval)) +
+  geom_histogram(bins = 30) +
+  labs(x = "T_2 Test p-value", y = "No. of Locus Pairs")
+```
+
+The distribution of *p*-values is given above. It is clearly not uniform, 
+suggesting some linkage is present in the dataset.
+
+```{r}
+bf_thres <- 0.05 / nrow(ld_res_pegas)
+bf_thres
+```
+
+```{r}
+ld_res_pegas_signif <- ld_res_pegas %>%
+  filter(T2_pval < bf_thres)
+ld_res_pegas_signif %>%
+  select(-locus_a_num, -locus_b_num, -ld_res)
+```
+
+```{r}
+for (i in seq(1:nrow(ld_res_pegas_signif))) {
+  print(
+    str_c(
+      "Comparison between ", 
+      ld_res_pegas_signif$locus_a_name[[i]], 
+      " and ", 
+      ld_res_pegas_signif$locus_b_name[[i]]
+    )
+  )
+  print(ld_res_pegas_signif$ld_res[[i]])
+}
+```
+
+# Overall
+
+Linkage disequilibrium was tested using the $\bar{r}_{d}$ measure. This was used 
+in favor of the more common index of association because the index of 
+association is a ratio of the variance observed between individuals at each 
+locus and the variance expected under conditions of linkage equilibrium. This 
+measure increases with the number of loci, so $\bar{r}_{d}$ was developed as an
+alternative that approximates the index of association while avoiding this
+limitation.
+
+Having multiple copies of a given multi-locus genotype can bias the estimation
+of LD. To avoid this bias, these duplicate genotypes were removed using 
+`poppr::clonecorrect`. LD was then estimated using `poppr::ia`.
+
+```{r}
+ld_res_poppr <- read_rds(inp$ld_res_poppr)
+ld_res_poppr
+```
+
+Higher values of $\bar{r}_{d}$ indicate higher levels of linkage disequilibrium.
+
+# Pairwise
+
+To understand which pairs of loci are responsible for this LD, $\bar{r}_{d}$ was 
+calculated and plotted separately for each pair of loci.
+
+```{r fig.height = 12, fig.width = 14}
+pairwise_ld_res <- poppr::clonecorrect(mh_data_gd, strata = NA) %>%
+  poppr::pair.ia()
+```
+
+Targets with gray swatches only have one allele in the dataset, and so 
+$\bar{r}_{d}$ cannot be calculated.
+
+```{r}
+trgs2filter <- read_csv(
+    inp$trgs2filter, 
+    col_types = cols(target = col_character()), 
+    progress = FALSE
+  ) %$%
+  target
+trgs2filter
+```
+
+```{r fig.height = 10, fig.width = 12}
+# Prepare microhaplotype data for conversion to genind -----------------
+mh_data <- mh_data %>%
+  select(target, sample_id, ASV, pop) %>%
+  filter(! is.na(pop)) %>%
+  # Required by adegenet
+  mutate(target = str_replace_all(target, "\\.", "_")) %>%
+  rename(sample_ID = sample_id, locus = target, allele = ASV)
+
+# Filter data and estimate updated LD results --------------------------
+mh_data %>%
+  filter(! locus %in% trgs2filter) %>%
+  hubpopgen::tib2genind() %>%
+  poppr::clonecorrect(strata = NA) %>%
+  poppr::ia(sample = 999, plot = FALSE)
+pairwise_ld_res_filtered <- mh_data %>%
+  filter(! locus %in% trgs2filter) %>%
+  hubpopgen::tib2genind() %>%
+  poppr::clonecorrect(strata = NA) %>%
+  poppr::pair.ia()
+```
+
+Targets with gray swatches only have one allele in the dataset, and so 
+$\bar{r}_{d}$ cannot be calculated.

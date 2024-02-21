@@ -16,6 +16,7 @@ library(ggplot2)
 library(knitr)
 library(magrittr)
 library(readr)
+library(readxl)
 library(stringr)
 library(tibble)
 library(tidyr)
@@ -31,13 +32,16 @@ theme_set(theme_bw())
 inp <- list(
   seqtab = "../../results/AmpSeq/asv2cigar/seqtab_cigar.tsv", 
   asv2cigar = "../../results/AmpSeq/asv2cigar/asv2cigar_tab.tsv", 
+  trg_coords = 
+    "../../results/primer_mapping/captured_seq_coords_noprimers.bed", 
   vera_lane_summary = "../../resources/vera_lane_summary.csv", 
   vera_library = 
     "../../resources/vera_library_2023-03-18_HemmingSchroeder_UCDavis.csv", 
   pv_samples_idaho = "../../resources/Pv_samples_Idaho.csv", 
-  gbpcd_meta = "../../resources/GBPCD_meta.csv"
+  gbpcd_meta = "../../resources/GBPCD_meta.csv", 
+  gbpcd_matched = "../../resources/GBPCD_P01_DBS_072423-Matched.xlsx"
 )
-out <- list(microhap_tidy = "../../results/microhap_tidy.csv")
+out <- list(microhap_tidy = "../../results/microhap/microhap.csv")
 ```
 
 # Missing Data by Marker
@@ -66,9 +70,7 @@ mh_data <- seqtab %>%
     relationship = "many-to-many"
   )
 
-# Compute proportion of missing samples for each loci ------------------
-mh_data <- mh_data %>%
-  complete(target, sample_id, fill = list(n_read = 0))
+# Compute number of samples with data for each loci --------------------
 n_samp_wdata <- mh_data %>%
   group_by(target, sample_id) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
@@ -107,7 +109,7 @@ mh_data_filtered <- mh_data %>%
 # Missing Data by Sample
 
 ```{r}
-# Compute proportion of missing loci for each sample -------------------
+# Compute number of loci with data for each sample ---------------------
 n_trg_wdata <- mh_data_filtered %>%
   group_by(target, sample_id) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
@@ -153,8 +155,7 @@ threshold.
 # Filter out loci with lots of missing data ----------------------------
 mh_data_filtered <- mh_data_filtered %>%
   filter(n_trg_wdata >= n_trg_wdata_thres) %>%
-  # Now that the missing data filters have been applied, remove rows 
-  # of missing data added by complete()
+  # Remove explicit missing data
   filter(n_read > 0)
 ```
 
@@ -173,6 +174,21 @@ n_distinct(mh_data_filtered$sample_id)
 ```
 
 ```{r}
+# Read in and join chromosome information ------------------------------
+chrom_info <- read_tsv(
+    inp$trg_coords, 
+    col_names = c("chrom", "start_pos", "end_pos", "target"), 
+    col_types = cols(
+      .default = col_character(), 
+      start_pos = col_integer(), 
+      end_pos = col_integer()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(chrom, target)
+mh_data_filtered <- mh_data_filtered %>%
+  left_join(chrom_info, by = "target")
+
 # Read in sample metadata ----------------------------------------------
 vera_lane_summary <- read_csv(
     inp$vera_lane_summary, 
@@ -215,6 +231,7 @@ gbpcd_meta <- read_csv(
   col_types = cols(.default = col_character(), Age = col_integer()), 
   progress = FALSE
 )
+gbpcd_matched <- read_excel(inp$gbpcd_matched)
 
 # Join sample metadata into one tibble, then to microhaplotypes --------
 sample_metadata <- left_join(
@@ -224,8 +241,10 @@ sample_metadata <- left_join(
   ) %>%
   select(-i7_seq, -i5_seq) %>%
   left_join(pv_samples_idaho, by = c("well" = "SeqPlate_Well")) %>%
-  left_join(gbpcd_meta, by = "UCI_SID")
+  left_join(gbpcd_matched, by = "UCI_SID")
+  # left_join(gbpcd_meta, by = "UCI_SID")
 filter(sample_metadata, is.na(DBS_ID))
+
 mh_data_filtered <- mh_data_filtered %>%
   left_join(sample_metadata, by = c("sample_id" = "Sample")) %>%
   mutate(pop = str_split_i(DBS_ID, "-", 1))

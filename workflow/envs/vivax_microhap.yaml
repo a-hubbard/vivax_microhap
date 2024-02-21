@@ -36,6 +36,7 @@ dependencies:
   - r-seqinr
   - r-poppr
   - r-pegas
+  - r-ape
   # Recommended for many R packages
   - r-codetools
   # Required for hubutil R package

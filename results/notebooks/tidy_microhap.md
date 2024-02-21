@@ -28,9 +28,7 @@ mh_data <- seqtab %>%
     relationship = "many-to-many"
   )
 
-# Compute proportion of missing samples for each loci ------------------
-mh_data <- mh_data %>%
-  complete(target, sample_id, fill = list(n_read = 0))
+# Compute number of samples with data for each loci --------------------
 n_samp_wdata <- mh_data %>%
   group_by(target, sample_id) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
@@ -71,7 +69,7 @@ mh_data_filtered <- mh_data %>%
 # Missing Data by Sample
 
 ``` r
-# Compute proportion of missing loci for each sample -------------------
+# Compute number of loci with data for each sample ---------------------
 n_trg_wdata <- mh_data_filtered %>%
   group_by(target, sample_id) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
@@ -119,8 +117,7 @@ removed by applying this threshold.
 # Filter out loci with lots of missing data ----------------------------
 mh_data_filtered <- mh_data_filtered %>%
   filter(n_trg_wdata >= n_trg_wdata_thres) %>%
-  # Now that the missing data filters have been applied, remove rows 
-  # of missing data added by complete()
+  # Remove explicit missing data
   filter(n_read > 0)
 ```
 
@@ -143,6 +140,21 @@ n_distinct(mh_data_filtered$sample_id)
     ## [1] 66
 
 ``` r
+# Read in and join chromosome information ------------------------------
+chrom_info <- read_tsv(
+    inp$trg_coords, 
+    col_names = c("chrom", "start_pos", "end_pos", "target"), 
+    col_types = cols(
+      .default = col_character(), 
+      start_pos = col_integer(), 
+      end_pos = col_integer()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(chrom, target)
+mh_data_filtered <- mh_data_filtered %>%
+  left_join(chrom_info, by = "target")
+
 # Read in sample metadata ----------------------------------------------
 vera_lane_summary <- read_csv(
     inp$vera_lane_summary, 
@@ -185,6 +197,7 @@ gbpcd_meta <- read_csv(
   col_types = cols(.default = col_character(), Age = col_integer()), 
   progress = FALSE
 )
+gbpcd_matched <- read_excel(inp$gbpcd_matched)
 
 # Join sample metadata into one tibble, then to microhaplotypes --------
 sample_metadata <- left_join(
@@ -194,17 +207,18 @@ sample_metadata <- left_join(
   ) %>%
   select(-i7_seq, -i5_seq) %>%
   left_join(pv_samples_idaho, by = c("well" = "SeqPlate_Well")) %>%
-  left_join(gbpcd_meta, by = "UCI_SID")
+  left_join(gbpcd_matched, by = "UCI_SID")
+  # left_join(gbpcd_meta, by = "UCI_SID")
 filter(sample_metadata, is.na(DBS_ID))
 ```
 
-    ## # A tibble: 3 × 11
+    ## # A tibble: 3 × 10
     ##   Sample       well  UCI_SID Dilution ParasiteDensity CT_Pv CT_Pf18s CT_PfvarATS
     ##   <chr>        <chr> <chr>   <chr>              <dbl> <dbl>    <dbl>       <dbl>
     ## 1 PV_SWGA_OLD… F07   <NA>    <NA>                  NA    NA       NA          NA
     ## 2 PV_SWGA_OLD… F08   <NA>    <NA>                  NA    NA       NA          NA
     ## 3 PV_SWGA_OLD… C12   Sal1    0.11111…              NA    NA       NA          NA
-    ## # ℹ 3 more variables: DBS_ID <chr>, Age <int>, Sex <chr>
+    ## # ℹ 2 more variables: DBS_ID <chr>, PCD_CASEID <chr>
 
 ``` r
 mh_data_filtered <- mh_data_filtered %>%
