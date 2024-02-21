@@ -627,27 +627,15 @@ rule check_ld:
         "{output}"
 trgs2filter_dir = os.path.join("results", "trgs2filter")
 trgs2filter_ld = os.path.join(trgs2filter_dir, "ld.csv")
-rule identify_high_ld_trgs:
-    input:
-        mh_data = microhap_filtered4ld, 
-        code = os.path.join("workflow", "scripts", "id_high_ld_trgs.R")
-    output: trgs2filter_ld
-    resources:
-        time = 10, 
-        mem_mb = 2000
-    threads: 1
-    benchmark: os.path.join("benchmarks", "identify_high_ld_trgs.tsv")
-    shell: 
-        "Rscript {input.code} --gen_data {input.mh_data} --pair_ld_thres 0.4 "
-        "--signif_thres 0.01 --seed {seed} --high_ld_trgs {output}"
 rule view_ld:
     input:
         ld_res_poppr, 
         microhap_filtered4ld_gd, 
         microhap_filtered4ld, 
-        trgs2filter_ld, 
         code = os.path.join("workflow", "notebooks", "ld.Rmd")
-    output: multiext(notebooks["ld"], ".nb.html", ".pdf", ".md")
+    output:
+        multiext(notebooks["ld"], ".nb.html", ".pdf", ".md"), 
+        trgs2filter_ld
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \

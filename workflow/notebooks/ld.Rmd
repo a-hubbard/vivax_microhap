@@ -22,6 +22,7 @@ library(purrr)
 library(readr)
 library(stringr)
 library(tibble)
+library(tidyr)
 
 # Don't include code in PDF output
 opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
@@ -32,12 +33,22 @@ set.seed(59404051)
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
 inp <- list(
-  ld_res_poppr = "../../results/ld_res_poppr.rds", 
   microhap_gd = "../../results/microhap/microhap_filtered4ld_gd.rds", 
   microhap_tidy = "../../results/microhap/microhap_filtered4ld.csv", 
-  trgs2filter = "../../results/trgs2filter/ld.csv"
+  ld_res_poppr = "../../results/ld_res_poppr.rds"
 )
+out <- list(trgs2filter = "../../results/trgs2filter/ld.csv")
 ```
+
+# pegas
+
+Linkage disequilibrium (LD) among locus pairs is estimated with the $T_2$ 
+statistic described in Zaykin et al. (2008). This method is based on the 
+correlation among allele frequencies, and "can be interpreted as the total 
+correlation between a pair of loci."
+
+This statistic was calculated among all pairs of loci, excluding those that are
+on different chromosomes.
 
 ```{r warning = FALSE}
 # Read in data and covert to the loci class ----------------------------
@@ -121,10 +132,14 @@ ld_res_pegas %>%
 The distribution of *p*-values is given above. It is clearly not uniform, 
 suggesting some linkage is present in the dataset.
 
+The Bonferroni-adjusted threshold for significance at the 0.05 level is:
+
 ```{r}
 bf_thres <- 0.05 / nrow(ld_res_pegas)
 bf_thres
 ```
+
+The loci pairs that have significant LD at this threshold are:
 
 ```{r}
 ld_res_pegas_signif <- ld_res_pegas %>%
@@ -132,6 +147,8 @@ ld_res_pegas_signif <- ld_res_pegas %>%
 ld_res_pegas_signif %>%
   select(-locus_a_num, -locus_b_num, -ld_res)
 ```
+
+Below is detailed information on the test results for these pairs.
 
 ```{r}
 for (i in seq(1:nrow(ld_res_pegas_signif))) {
@@ -147,10 +164,53 @@ for (i in seq(1:nrow(ld_res_pegas_signif))) {
 }
 ```
 
-# Overall
+To create a dataset suitable for relatedness analysis, loci will be removed to
+yield a filtered dataset without loci pairs that are in significant LD.
 
-Linkage disequilibrium was tested using the $\bar{r}_{d}$ measure. This was used 
-in favor of the more common index of association because the index of 
+The two pairs on chromosome 4 share a locus in common:
+PvP01_04_v1_401301_401500. Similarly, the two pairs on chromosome 12 also share
+a locus in common: PvP01_12_v1_2032801_2033000. It is therefore logical to
+remove these two loci.
+
+The two pairs on chromosome 9 do not share a locus in common. Instead, the
+sample size for each target is used to help decide which loci to discard:
+
+```{r}
+# Compute sample size for each target of interest ----------------------
+chrom9_signif_loci <- ld_res_pegas_signif %>%
+  # Because everything should be on one chromosome, filtering by 
+  # target_b as well should be unnecessary
+  filter(str_detect(locus_a_name, "PvP01_09")) %>%
+  select(locus_a_name, locus_b_name) %>%
+  pivot_longer(everything(), names_to = "pair_loc", values_to = "target") %$%
+  target
+mh_data %>%
+  group_by(target) %>%
+  summarize(n_samp = n_distinct(sample_id), .groups = "drop") %>%
+  filter(target %in% chrom9_signif_loci)
+```
+
+To maintain the largest amount of data possible after filtering, we choose to
+remove PvP01_09_v1_1564401_1564600 and PvP01_09_v1_769601_769800.
+
+```{r}
+tibble(
+    target = c(
+      "PvP01_04_v1_401301_401500", 
+      "PvP01_12_v1_2032801_2033000", 
+      "PvP01_09_v1_1564401_1564600", 
+      "PvP01_09_v1_769601_769800"
+    )
+  ) %>%
+  write_csv(out$trgs2filter)
+```
+
+# poppr
+
+## Overall
+
+Linkage disequilibrium was also tested using the $\bar{r}_{d}$ measure. This was 
+used in favor of the more common index of association because the index of 
 association is a ratio of the variance observed between individuals at each 
 locus and the variance expected under conditions of linkage equilibrium. This 
 measure increases with the number of loci, so $\bar{r}_{d}$ was developed as an
@@ -166,9 +226,11 @@ ld_res_poppr <- read_rds(inp$ld_res_poppr)
 ld_res_poppr
 ```
 
-Higher values of $\bar{r}_{d}$ indicate higher levels of linkage disequilibrium.
+Higher values of $\bar{r}_{d}$ indicate higher levels of linkage disequilibrium. 
+Note that this value of overall LD includes estimates of LD between pairs of 
+loci on different chromosomes, and thus should be interpreted with caution.
 
-# Pairwise
+## Pairwise
 
 To understand which pairs of loci are responsible for this LD, $\bar{r}_{d}$ was 
 calculated and plotted separately for each pair of loci.
@@ -181,37 +243,6 @@ pairwise_ld_res <- poppr::clonecorrect(mh_data_gd, strata = NA) %>%
 Targets with gray swatches only have one allele in the dataset, and so 
 $\bar{r}_{d}$ cannot be calculated.
 
-```{r}
-trgs2filter <- read_csv(
-    inp$trgs2filter, 
-    col_types = cols(target = col_character()), 
-    progress = FALSE
-  ) %$%
-  target
-trgs2filter
-```
-
-```{r fig.height = 10, fig.width = 12}
-# Prepare microhaplotype data for conversion to genind -----------------
-mh_data <- mh_data %>%
-  select(target, sample_id, ASV, pop) %>%
-  filter(! is.na(pop)) %>%
-  # Required by adegenet
-  mutate(target = str_replace_all(target, "\\.", "_")) %>%
-  rename(sample_ID = sample_id, locus = target, allele = ASV)
-
-# Filter data and estimate updated LD results --------------------------
-mh_data %>%
-  filter(! locus %in% trgs2filter) %>%
-  hubpopgen::tib2genind() %>%
-  poppr::clonecorrect(strata = NA) %>%
-  poppr::ia(sample = 999, plot = FALSE)
-pairwise_ld_res_filtered <- mh_data %>%
-  filter(! locus %in% trgs2filter) %>%
-  hubpopgen::tib2genind() %>%
-  poppr::clonecorrect(strata = NA) %>%
-  poppr::pair.ia()
-```
-
-Targets with gray swatches only have one allele in the dataset, and so 
-$\bar{r}_{d}$ cannot be calculated.
+This method shows some agreement with the $T_2$ statistic, but most of the 
+highest LD pairs are located on different chromosomes. We selected the $T_2$ 
+results as our method of choice for subsequent filtering.

@@ -2,6 +2,16 @@ Linkage Disequilibrium Test for Microhaplotype Data
 ================
 Alfred Hubbard
 
+# pegas
+
+Linkage disequilibrium (LD) among locus pairs is estimated with the
+$T_2$ statistic described in Zaykin et al. (2008). This method is based
+on the correlation among allele frequencies, and “can be interpreted as
+the total correlation between a pair of loci.”
+
+This statistic was calculated among all pairs of loci, excluding those
+that are on different chromosomes.
+
 ``` r
 # Read in data and covert to the loci class ----------------------------
 mh_data_gd <- read_rds(inp$microhap_gd)
@@ -86,12 +96,16 @@ ld_res_pegas %>%
 The distribution of *p*-values is given above. It is clearly not
 uniform, suggesting some linkage is present in the dataset.
 
+The Bonferroni-adjusted threshold for significance at the 0.05 level is:
+
 ``` r
 bf_thres <- 0.05 / nrow(ld_res_pegas)
 bf_thres
 ```
 
     ## [1] 0.0005813953
+
+The loci pairs that have significant LD at this threshold are:
 
 ``` r
 ld_res_pegas_signif <- ld_res_pegas %>%
@@ -109,6 +123,8 @@ ld_res_pegas_signif %>%
     ## 4 PvP01_09_v1_1814501_1814700 PvP01_09_v1_769601_769800   1.21e- 4
     ## 5 PvP01_12_v1_1436301_1436500 PvP01_12_v1_2032801_2033000 1.46e- 5
     ## 6 PvP01_12_v1_2032801_2033000 PvP01_12_v1_3000601_3000800 1.21e- 6
+
+Below is detailed information on the test results for these pairs.
 
 ``` r
 for (i in seq(1:nrow(ld_res_pegas_signif))) {
@@ -304,11 +320,65 @@ for (i in seq(1:nrow(ld_res_pegas_signif))) {
     ##           T2           df        P-val 
     ## 4.225892e+01 8.000000e+00 1.210834e-06
 
-# Overall
+To create a dataset suitable for relatedness analysis, loci will be
+removed to yield a filtered dataset without loci pairs that are in
+significant LD.
 
-Linkage disequilibrium was tested using the $\bar{r}_{d}$ measure. This
-was used in favor of the more common index of association because the
-index of association is a ratio of the variance observed between
+The two pairs on chromosome 4 share a locus in common:
+PvP01_04_v1_401301_401500. Similarly, the two pairs on chromosome 12
+also share a locus in common: PvP01_12_v1_2032801_2033000. It is
+therefore logical to remove these two loci.
+
+The two pairs on chromosome 9 do not share a locus in common. Instead,
+the sample size for each target is used to help decide which loci to
+discard:
+
+``` r
+# Compute sample size for each target of interest ----------------------
+chrom9_signif_loci <- ld_res_pegas_signif %>%
+  # Because everything should be on one chromosome, filtering by 
+  # target_b as well should be unnecessary
+  filter(str_detect(locus_a_name, "PvP01_09")) %>%
+  select(locus_a_name, locus_b_name) %>%
+  pivot_longer(everything(), names_to = "pair_loc", values_to = "target") %$%
+  target
+mh_data %>%
+  group_by(target) %>%
+  summarize(n_samp = n_distinct(sample_id), .groups = "drop") %>%
+  filter(target %in% chrom9_signif_loci)
+```
+
+    ## # A tibble: 4 × 2
+    ##   target                      n_samp
+    ##   <chr>                        <int>
+    ## 1 PvP01_09_v1_1564401_1564600     64
+    ## 2 PvP01_09_v1_1814501_1814700     65
+    ## 3 PvP01_09_v1_282801_283000       66
+    ## 4 PvP01_09_v1_769601_769800       61
+
+To maintain the largest amount of data possible after filtering, we
+choose to remove PvP01_09_v1_1564401_1564600 and
+PvP01_09_v1_769601_769800.
+
+``` r
+tibble(
+    target = c(
+      "PvP01_04_v1_401301_401500", 
+      "PvP01_12_v1_2032801_2033000", 
+      "PvP01_09_v1_1564401_1564600", 
+      "PvP01_09_v1_769601_769800"
+    )
+  ) %>%
+  write_csv(out$trgs2filter)
+```
+
+# poppr
+
+## Overall
+
+Linkage disequilibrium was also tested using the $\bar{r}_{d}$ measure.
+This was used in favor of the more common index of association because
+the index of association is a ratio of the variance observed between
 individuals at each locus and the variance expected under conditions of
 linkage equilibrium. This measure increases with the number of loci, so
 $\bar{r}_{d}$ was developed as an alternative that approximates the
@@ -328,9 +398,11 @@ ld_res_poppr
     ## 5.3697483 0.0010000 0.1091568 0.0010000
 
 Higher values of $\bar{r}_{d}$ indicate higher levels of linkage
-disequilibrium.
+disequilibrium. Note that this value of overall LD includes estimates of
+LD between pairs of loci on different chromosomes, and thus should be
+interpreted with caution.
 
-# Pairwise
+## Pairwise
 
 To understand which pairs of loci are responsible for this LD,
 $\bar{r}_{d}$ was calculated and plotted separately for each pair of
@@ -344,62 +416,11 @@ pairwise_ld_res <- poppr::clonecorrect(mh_data_gd, strata = NA) %>%
     ## Warning in poppr::clonecorrect(mh_data_gd, strata = NA): Strata is not set for
     ## mh_data_gd. Clone correct will be performed without population information.
 
-<img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/ld_files/figure-gfm/unnamed-chunk-6-1.png" width="100%" />
-
-Targets with gray swatches only have one allele in the dataset, and so
-$\bar{r}_{d}$ cannot be calculated.
-
-``` r
-trgs2filter <- read_csv(
-    inp$trgs2filter, 
-    col_types = cols(target = col_character()), 
-    progress = FALSE
-  ) %$%
-  target
-trgs2filter
-```
-
-    ## [1] "PvP01_04_v1_401001_401200"   "PvP01_12_v1_1436301_1436500"
-
-``` r
-# Prepare microhaplotype data for conversion to genind -----------------
-mh_data <- mh_data %>%
-  select(target, sample_id, ASV, pop) %>%
-  filter(! is.na(pop)) %>%
-  # Required by adegenet
-  mutate(target = str_replace_all(target, "\\.", "_")) %>%
-  rename(sample_ID = sample_id, locus = target, allele = ASV)
-
-# Filter data and estimate updated LD results --------------------------
-mh_data %>%
-  filter(! locus %in% trgs2filter) %>%
-  hubpopgen::tib2genind() %>%
-  poppr::clonecorrect(strata = NA) %>%
-  poppr::ia(sample = 999, plot = FALSE)
-```
-
-    ## Warning: Ploidy assumed to be 1.
-
-    ## Warning in poppr::clonecorrect(., strata = NA): Strata is not set for .. Clone
-    ## correct will be performed without population information.
-
-    ##        Ia      p.Ia     rbarD      p.rD 
-    ## 4.9385086 0.0010000 0.1045474 0.0010000
-
-``` r
-pairwise_ld_res_filtered <- mh_data %>%
-  filter(! locus %in% trgs2filter) %>%
-  hubpopgen::tib2genind() %>%
-  poppr::clonecorrect(strata = NA) %>%
-  poppr::pair.ia()
-```
-
-    ## Warning: Ploidy assumed to be 1.
-
-    ## Warning: Strata is not set for .. Clone correct will be performed without
-    ## population information.
-
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/ld_files/figure-gfm/unnamed-chunk-8-1.png" width="100%" />
 
 Targets with gray swatches only have one allele in the dataset, and so
 $\bar{r}_{d}$ cannot be calculated.
+
+This method shows some agreement with the $T_2$ statistic, but most of
+the highest LD pairs are located on different chromosomes. We selected
+the $T_2$ results as our method of choice for subsequent filtering.
