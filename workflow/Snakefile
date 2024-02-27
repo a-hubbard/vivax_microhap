@@ -22,7 +22,6 @@ localrules:
     postproc_dada2,  
     check_snvs_indels, 
     asv2cigar, 
-    assess_microhap_quantity, 
     tidy_microhap, 
     csv2genind, 
     estimate_diversity, 
@@ -42,7 +41,6 @@ notebook_basenames = [
     "investigate_mapping", 
     "read_counts", 
     "check_snvs_indels", 
-    "microhap_quantity", 
     "tidy_microhap", 
     "diversity", 
     "filter4ld", 
@@ -532,18 +530,6 @@ rule asv2cigar:
         "{input.ref} --min_reads 6 --exclude_bimeras {input.asv_fastas} "
         "--max_snv_dist 50 --max_indel_dist 17 {input.asvtab} {input.seqtab} "
         "{output.seqtab_cigar}"
-# Analyze AmpSeq output
-rule assess_microhap_quantity:
-    input:
-        ampseq_reads_summ, 
-        seqtab_cigar, 
-        code = os.path.join("workflow", "notebooks", "microhap_quantity.Rmd")
-    output: multiext(notebooks["microhap_quantity"], ".nb.html", ".pdf", ".md")
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
 
 # Tidy and filter microhaplotypes
 vera_library = os.path.join(
@@ -553,20 +539,22 @@ vera_metadata = os.path.join("resources", "Pv_samples_Idaho.csv")
 vera_lane_summary = os.path.join("resources", "vera_lane_summary.csv")
 gbpcd_meta = os.path.join("resources", "GBPCD_meta.csv")
 microhap_dir = os.path.join("results", "microhap")
-microhap_tidy = os.path.join(microhap_dir, "microhap.csv")
+microhap_dilutions = os.path.join(microhap_dir, "microhap_dilutions.csv")
+microhap_undiluted = os.path.join(microhap_dir, "microhap_undiluted.csv")
 rule tidy_microhap:
     input:
         seqtab_cigar, 
         asv2cigar_tab, 
-        trg_coords_noprimers, 
         vera_library, 
         vera_metadata, 
         vera_lane_summary, 
         gbpcd_meta, 
+        trg_coords_noprimers, 
         code = os.path.join("workflow", "notebooks", "tidy_microhap.Rmd")
     output: 
         multiext(notebooks["tidy_microhap"], ".nb.html", ".pdf", ".md"), 
-        microhap_tidy
+        microhap_dilutions, 
+        microhap_undiluted
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -580,12 +568,12 @@ rule csv2genind:
         code = os.path.join("workflow", "scripts", "csv2genind.R")
     output: "{mh_dataset}_gd.rds"
     shell: "Rscript {input.code} --mh_csv {input.mh_csv} --mh_gd {output}"
-microhap_gd = os.path.join(microhap_dir, "microhap_gd.rds")
+microhap_undiluted_gd = os.path.join(microhap_dir, "microhap_undiluted_gd.rds")
 sd_moi = os.path.join("resources", "vera-moi_out.tsv")
 rule estimate_diversity:
     input:
-        microhap_tidy, 
-        microhap_gd, 
+        microhap_undiluted, 
+        microhap_undiluted_gd, 
         asv_fastas, 
         sd_moi, 
         code = os.path.join("workflow", "notebooks", "diversity.Rmd")
@@ -602,7 +590,7 @@ rule estimate_diversity:
 microhap_filtered4ld = os.path.join(microhap_dir, "microhap_filtered4ld.csv")
 rule filter4ld:
     input:
-        mh_full = microhap_tidy, 
+        mh_full = microhap_undiluted, 
         code = os.path.join("workflow", "notebooks", "filter4ld.Rmd")
     output: 
         multiext(notebooks["filter4ld"], ".nb.html", ".pdf", ".md"), 
@@ -625,8 +613,6 @@ rule check_ld:
     shell:
         "Rscript {input.code} --data_gd {input.mh_data} --seed {seed} --out "
         "{output}"
-trgs2filter_dir = os.path.join("results", "trgs2filter")
-trgs2filter_ld = os.path.join(trgs2filter_dir, "ld.csv")
 rule view_ld:
     input:
         ld_res_poppr, 
@@ -634,13 +620,14 @@ rule view_ld:
         microhap_filtered4ld, 
         code = os.path.join("workflow", "notebooks", "ld.Rmd")
     output:
-        multiext(notebooks["ld"], ".nb.html", ".pdf", ".md"), 
-        trgs2filter_ld
+        multiext(notebooks["ld"], ".nb.html", ".pdf", ".md")
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
             output_dir = "{rendered_notebook_dir}")'
         """
+
+trgs2filter_dir = os.path.join("results", "trgs2filter")
 
 # Make figures
 microhap_combined = os.path.join(

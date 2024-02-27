@@ -7,7 +7,7 @@ Alfred Hubbard
 ``` r
 # Read in microhaplotype data ------------------------------------------
 mh_data <- read_csv(
-    inp$mh_data, 
+    inp$mh_csv, 
     col_types = cols(
       .default = col_character(), 
       n_read = col_integer(), 
@@ -34,7 +34,7 @@ asv_seqs <- tibble(
 mh_data <- mh_data %>%
   left_join(asv_seqs, by = c("ASV" = "asv_id"))
 
-# filter(mh_data, target == "pvcrt_o.10k.indel") %$%
+# filter(mh_data, target == "PvP01_14_v1_2861901_2862100") %$%
 #   as.matrix(asv_seq) %>%
 #   pegas::haplotype() %>%
 #   pegas::nuc.div()
@@ -43,19 +43,9 @@ mh_data <- mh_data %>%
 # Sample Diversity
 
 ``` r
-# Convert to genind object ---------------------------------------------
-mh_data_gd <- mh_data %>%
-  filter(! is.na(pop)) %>%
-  # Required by adegenet
-  mutate(target = str_replace_all(target, "\\.", "_")) %>%
-  select(sample_id, pop, target, ASV) %>%
-  rename(sample_ID = sample_id, locus = target, allele = ASV) %>%
-  hubpopgen::tib2genind()
-```
+# Read in microhaplotype genind object ---------------------------------
+mh_data_gd <- read_rds(inp$mh_gd)
 
-    ## Warning: Ploidy assumed to be 5.
-
-``` r
 # Compute summary statistics, filtering to those of interest -----------
 poppr::poppr(mh_data_gd) %>%
   select(Pop, N, MLG, Hexp)

@@ -29,8 +29,6 @@ mh_data <- read_csv(
     col_types = cols(
       .default = col_character(), 
       n_read = col_integer(), 
-      n_samp_wdata = col_integer(), 
-      n_trg_wdata = col_integer(), 
       ParasiteDensity = col_double(), 
       CT_Pv = col_double(), 
       CT_Pf18s = col_double(), 
@@ -45,7 +43,6 @@ mh_data <- read_csv(
 
 # Convert to genind object and save ------------------------------------
 mh_data %>%
-  filter(! is.na(pop)) %>%
   # Required by adegenet
   mutate(target = str_replace_all(target, "\\.", "_")) %>%
   rename(sample_ID = sample_id, locus = target, allele = ASV) %>%

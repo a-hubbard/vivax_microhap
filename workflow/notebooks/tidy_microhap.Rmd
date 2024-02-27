@@ -32,21 +32,44 @@ theme_set(theme_bw())
 inp <- list(
   seqtab = "../../results/AmpSeq/asv2cigar/seqtab_cigar.tsv", 
   asv2cigar = "../../results/AmpSeq/asv2cigar/asv2cigar_tab.tsv", 
-  trg_coords = 
-    "../../results/primer_mapping/captured_seq_coords_noprimers.bed", 
   vera_lane_summary = "../../resources/vera_lane_summary.csv", 
   vera_library = 
     "../../resources/vera_library_2023-03-18_HemmingSchroeder_UCDavis.csv", 
   pv_samples_idaho = "../../resources/Pv_samples_Idaho.csv", 
   gbpcd_meta = "../../resources/GBPCD_meta.csv", 
-  gbpcd_matched = "../../resources/GBPCD_P01_DBS_072423-Matched.xlsx"
+  trg_coords = 
+    "../../results/primer_mapping/captured_seq_coords_noprimers.bed"
 )
-out <- list(microhap_tidy = "../../results/microhap/microhap.csv")
+out <- list(
+  microhap_undiluted = "../../results/microhap/microhap_undiluted.csv", 
+  microhap_dilutions = "../../results/microhap/microhap_dilutions.csv"
+)
 ```
 
-# Missing Data by Marker
+# Final Data Quantity
 
-```{r}
+## Unfiltered
+
+```{r fig.width = 16, fig.height = 10}
+read_count_heatmap <- function(reads) {
+  ggplot(
+      data = reads, 
+      mapping = aes(x = target, y = sample_id, fill = n_read)
+    ) +
+    geom_tile() +
+    scale_fill_fermenter(
+      palette = "YlGnBu", 
+      name = "Reads", 
+      breaks = c(10, 100, 1000, 2000)
+    ) +
+    labs(x = "Marker", y = "Sample") +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1), 
+      legend.position = "bottom", 
+      legend.key.width = unit(0.35, "in")
+    )
+}
+
 # Read in final, filtered data -----------------------------------------
 seqtab <- read_tsv(
     inp$seqtab, 
@@ -69,125 +92,6 @@ mh_data <- seqtab %>%
     by = c("target" = "Amplicon", "cigar" = "CIGAR"), 
     relationship = "many-to-many"
   )
-
-# Compute number of samples with data for each loci --------------------
-n_samp_wdata <- mh_data %>%
-  group_by(target, sample_id) %>%
-  summarize(n_read = sum(n_read), .groups = "drop") %>%
-  group_by(target) %>%
-  summarize(n_samp_wdata = sum(n_read > 0), .groups = "drop")
-mh_data <- mh_data %>%
-  left_join(n_samp_wdata, by = "target")
-
-# Plot data quantity by marker -----------------------------------------
-n_samp_wdata_thres <- 20
-mh_data %>%
-  select(target, n_samp_wdata) %>%
-  distinct() %>%
-  ggplot(mapping = aes(x = n_samp_wdata)) +
-  geom_histogram(bins = 25) +
-  geom_vline(xintercept = n_samp_wdata_thres, color = "blue") +
-  labs(x = "No. of Samples With Data", y = "No. of Markers")
-```
-
-This histogram shows the distribution of markers according to how many samples
-have data for each marker. Given that the total number of samples in the dataset
-is `r n_distinct(mh_data$sample_id)`, these results are pretty good. Many
-markers have data for all of the samples, and about half of the rest have data
-for more than half of the samples.
-
-A few markers, though, did not perform well. The vertical blue line marks `r 
-n_samp_wdata_thres` samples with data. This threshold is used to filter markers 
-for subsequent analyses, removing those that fall below.
-
-```{r}
-# Filter out loci with lots of missing data ----------------------------
-mh_data_filtered <- mh_data %>%
-  filter(n_samp_wdata >= n_samp_wdata_thres)
-```
-
-# Missing Data by Sample
-
-```{r}
-# Compute number of loci with data for each sample ---------------------
-n_trg_wdata <- mh_data_filtered %>%
-  group_by(target, sample_id) %>%
-  summarize(n_read = sum(n_read), .groups = "drop") %>%
-  group_by(sample_id) %>%
-  summarize(n_trg_wdata = sum(n_read > 0), .groups = "drop")
-mh_data_filtered <- mh_data_filtered %>%
-  left_join(n_trg_wdata, by = "sample_id")
-
-# Plot distribution of missing data proportion by marker ---------------
-# This threshold guarantees ten markers worth of overlap between any 
-# two samples
-n_trg_wdata_thres <- round((n_distinct(mh_data_filtered$target)/2) + 10)
-mh_data_filtered %>%
-  select(sample_id, n_trg_wdata) %>%
-  distinct() %>%
-  ggplot(mapping = aes(x = n_trg_wdata)) +
-  geom_histogram(bins = 20) +
-  geom_vline(xintercept = n_trg_wdata_thres, color = "blue") +
-  labs(x = "No. of Targets With Data", y = "No. of Samples")
-```
-
-This histogram shows the distribution of samples according to how many markers
-have data for each sample. Note the marker filter of `r n_samp_wdata_thres` 
-samples with data has already been applied, and this histogram is based on the 
-remaining data. There are `r n_distinct(mh_data_filtered$target)` markers left 
-in the dataset after the filtering above. This histogram shows that almost all 
-of the samples have data for most of these markers.
-
-The vertical blue line shows the chosen threshold of targets with data that will 
-be used for filtering the samples. This value, `r n_trg_wdata_thres`, was 
-selected with the following formula, rounding up:
-
-$$
-Thres. = \frac{No. Targets}{2} + 10
-$$
-
-This threshold ensures that every pair of samples has a minimum of 10 targets 
-worth of overlap, hopefully ensuring sufficient data for relatedness analysis. 
-The blue line indicates only two samples will be removed by applying this 
-threshold.
-
-```{r}
-# Filter out loci with lots of missing data ----------------------------
-mh_data_filtered <- mh_data_filtered %>%
-  filter(n_trg_wdata >= n_trg_wdata_thres) %>%
-  # Remove explicit missing data
-  filter(n_read > 0)
-```
-
-# Stats
-
-Number of markers in the filtered dataset:
-
-```{r}
-n_distinct(mh_data_filtered$target)
-```
-
-Number of samples in the filtered dataset:
-
-```{r}
-n_distinct(mh_data_filtered$sample_id)
-```
-
-```{r}
-# Read in and join chromosome information ------------------------------
-chrom_info <- read_tsv(
-    inp$trg_coords, 
-    col_names = c("chrom", "start_pos", "end_pos", "target"), 
-    col_types = cols(
-      .default = col_character(), 
-      start_pos = col_integer(), 
-      end_pos = col_integer()
-    ), 
-    progress = FALSE
-  ) %>%
-  select(chrom, target)
-mh_data_filtered <- mh_data_filtered %>%
-  left_join(chrom_info, by = "target")
 
 # Read in sample metadata ----------------------------------------------
 vera_lane_summary <- read_csv(
@@ -231,7 +135,6 @@ gbpcd_meta <- read_csv(
   col_types = cols(.default = col_character(), Age = col_integer()), 
   progress = FALSE
 )
-gbpcd_matched <- read_excel(inp$gbpcd_matched)
 
 # Join sample metadata into one tibble, then to microhaplotypes --------
 sample_metadata <- left_join(
@@ -241,16 +144,286 @@ sample_metadata <- left_join(
   ) %>%
   select(-i7_seq, -i5_seq) %>%
   left_join(pv_samples_idaho, by = c("well" = "SeqPlate_Well")) %>%
-  left_join(gbpcd_matched, by = "UCI_SID")
-  # left_join(gbpcd_meta, by = "UCI_SID")
-filter(sample_metadata, is.na(DBS_ID))
-
-mh_data_filtered <- mh_data_filtered %>%
+  left_join(gbpcd_meta, by = "UCI_SID")
+mh_data <- mh_data %>%
   left_join(sample_metadata, by = c("sample_id" = "Sample")) %>%
   mutate(pop = str_split_i(DBS_ID, "-", 1))
 
+# Plot reads by sample and target --------------------------------------
+undiluted_reads <- mh_data %>%
+  filter(Dilution == "Neat") %>%
+  group_by(sample_id, target) %>%
+  summarize(n_read = sum(n_read), .groups = "drop")
+undiluted_reads %>%
+  # Filter out controls
+  filter(
+    ! sample_id %in% c("PV_SWGA_OLD42", "PV_SWGA_OLD48", "PV_SWGA_OLD66")
+  ) %>%
+  read_count_heatmap()
+```
+
+This heatmap shows the number of reads in the final dataset for each
+target-sample combination. Controls and dilutions have been removed. The results 
+are quite similar to those found by AmpSeQC (analyzed in `read_counts.Rmd`), 
+which is expected (note that some markers present in the AmpSeQC output have 
+been filtered out here).
+
+## Negative Controls
+
+```{r fig.width = 16, fig.height = 3.5}
+# Plot reads for negative controls -------------------------------------
+mh_data %>%
+  filter(sample_id %in% c("PV_SWGA_OLD42", "PV_SWGA_OLD48")) %>%
+  group_by(sample_id, target) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  read_count_heatmap()
+```
+
+This heatmap shows the number of reads in the final dataset for the two negative
+controls. Clearly, there has been quite a bit of contamination, albeit at fairly 
+low read counts.
+
+This table shows the genotypes that were found in the negative controls at a
+relatively high read count:
+
+```{r}
+# Print instances of substantial contamination -------------------------
+neg_controls <- mh_data %>%
+  filter(sample_id %in% c("PV_SWGA_OLD42", "PV_SWGA_OLD48")) %>%
+  select(sample_id, target, ASV, n_read, cigar) %>%
+  relocate(ASV, .before = cigar) %>%
+  relocate(n_read, .before = cigar) %>%
+  filter(n_read > 0)
+neg_controls %>%
+  filter(n_read > 100)
+```
+
+There are not too many of these, and they do not exceed 250 reads. This is not a 
+trivial amount of sequence, but it also isn't enormous.
+
+The following two tables show 1) instances where a genotype was found in one 
+negative control and not the other and 2) instances where a genotype was found 
+in both negative controls but there is a substantial difference in the read 
+count.
+
+```{r}
+# Assess similarity of two negative controls ---------------------------
+neg_control_diff <- neg_controls %>%
+  pivot_wider(names_from = sample_id, values_from = n_read) %>%
+  mutate(control_diff = PV_SWGA_OLD48 - PV_SWGA_OLD42) %>%
+  relocate(cigar, .after = last_col())
+neg_control_diff %>%
+  filter(is.na(control_diff)) %>%
+  select(-control_diff)
+neg_control_diff %>%
+  filter(abs(control_diff) > 10)
+```
+
+Taken together, these tables suggest concurrence between the negative controls, 
+with the possible exception of the four haplotypes (from two loci) that show up 
+in PV_SWGA_OLD48 at a read count greater than 10 but do not appear in 
+PV_SWGA_OLD42. This may warrant further investigation.
+
+## Filtered for Contamination
+
+To address this contamination, genotypes that match genotypes found in the 
+negative controls are removed from the dataset unless the read count exceeds 
+that found in the negative controls by at least a factor of two. Note that no 
+attempt to adjust the read counts of genotypes that match the contaminating 
+genotypes but exceed this threshold was made - it is not clear how this could be 
+done, mathematically speaking.
+
+```{r fig.width = 16, fig.height = 10}
+# Filter genotype read counts according to contamination in controls ---
+neg_control_filterthres <- neg_controls %>%
+  # Take maximum number of reads between two negative controls 
+  group_by(target, cigar, ASV) %>%
+  summarize(n_read_negcontrol = max(n_read), .groups = "drop_last")
+mh_data_filteredbycontrol <- mh_data %>%
+  # Filter out negative controls
+  filter(! sample_id %in% c("PV_SWGA_OLD42", "PV_SWGA_OLD48")) %>%
+  left_join(neg_control_filterthres, by = c("target", "cigar", "ASV")) %>%
+  replace_na(list(n_read_negcontrol = 0)) %>%
+  # Set read count to 0 for a genotype if it does not exceed the read 
+  # count for any contamination for that genotype by a factor of 2
+  mutate(n_read = if_else(n_read > n_read_negcontrol * 2, n_read, 0)) %>%
+  select(-n_read_negcontrol)
+
+# Plot filtered data ---------------------------------------------------
+mh_data_filteredbycontrol %>%
+  filter(Dilution == "Neat") %>%
+  group_by(target, sample_id) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  read_count_heatmap()
+```
+
+This heatmap shows the read count for each marker/sample combination after this 
+filter was applied. By comparing with the read count heatmap before this filter 
+was applied, it can be seen that there were low levels of data for some markers 
+that seemed to be present in almost all samples prior to the filter, and that 
+this apparent data has been removed.
+
+This pattern, along with inspection of the contaminating genotypes in the tables 
+above, is consistent with the idea that one sample contaminated all of the wells 
+at a relatively low concentration. The filtered heatmap suggests that about 20 
+samples still have a substantial amount of data after the effects of this 
+contamination were filtered out.
+
+## Positive Control
+
+```{r fig.width = 16, fig.height = 3}
+# Plot reads for positive control --------------------------------------
+pos_control <- mh_data_filteredbycontrol %>%
+  filter(sample_id == "PV_SWGA_OLD66") %>%
+  select(sample_id, target, ASV, n_read, cigar)
+pos_control %>%
+  filter(n_read > 0)
+# pos_control %>%
+#   group_by(target, sample_id) %>%
+#   summarize(n_read = sum(n_read), .groups = "drop") %>%
+#   read_count_heatmap()
+```
+
+After filtering out contaminated reads, there is almost nothing left in the
+positive control.
+
+```{r}
+# Check to make sure it is monoclonal ----------------------------------
+# pos_control %>%
+#   group_by(sample_id, target) %>%
+#   filter(n() > 2)
+
+# Filter out positive control ------------------------------------------
+mh_data_filteredbycontrol <- mh_data_filteredbycontrol %>%
+  filter(sample_id != "PV_SWGA_OLD66")
+
+# Separate and save dilutions ------------------------------------------
+diluted_samples <- mh_data_filteredbycontrol %>%
+  filter(Dilution != "Neat") %$%
+  unique(sample_id)
+mh_data_filteredbycontrol %>%
+  filter(sample_id %in% diluted_samples) %>%
+  select(-Age, -Sex, -pop) %>%
+  write_csv(out$microhap_dilutions)
+
+# Filter out dilutions for remainder of analysis -----------------------
+mh_data_undiluted <- mh_data_filteredbycontrol %>%
+  filter(Dilution == "Neat") %>%
+  select(-Dilution)
+```
+
+# Missing Data by Sample
+
+```{r}
+# Compute number of loci with data for each sample ---------------------
+n_trg_wdata <- mh_data_undiluted %>%
+  group_by(target, sample_id) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  group_by(sample_id) %>%
+  summarize(n_trg_wdata = sum(n_read > 0), .groups = "drop")
+mh_data_undiluted <- mh_data_undiluted %>%
+  left_join(n_trg_wdata, by = "sample_id")
+
+# Plot distribution of missing data proportion by marker ---------------
+n_trgs_filtered <- mh_data_undiluted %>%
+  filter(n_read > 0) %$%
+  n_distinct(target)
+n_trg_wdata_thres <- 20
+mh_data_undiluted %>%
+  select(sample_id, n_trg_wdata) %>%
+  distinct() %>%
+  ggplot(mapping = aes(x = n_trg_wdata)) +
+  geom_histogram(bins = 20) +
+  geom_vline(xintercept = n_trg_wdata_thres, color = "blue") +
+  labs(x = "No. of Targets With Data", y = "No. of Samples")
+```
+
+This histogram shows the distribution of samples according to how many markers
+have data for each sample. There are `r n_trgs_filtered` markers in the dataset.
+
+The vertical blue line shows the chosen threshold of targets with data that will 
+be used for filtering the samples.
+
+```{r}
+# Filter out samples with lots of missing data -------------------------
+mh_data_filteredbysamp <- mh_data_undiluted %>%
+  filter(n_trg_wdata >= n_trg_wdata_thres) %>%
+  select(-n_trg_wdata)
+```
+
+# Missing Data by Marker
+
+```{r}
+# Compute number of samples with data for each loci --------------------
+n_samp_wdata <- mh_data_filteredbysamp %>%
+  group_by(target, sample_id) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  group_by(target) %>%
+  summarize(n_samp_wdata = sum(n_read > 0), .groups = "drop")
+mh_data_filteredbysamp <- mh_data_filteredbysamp %>%
+  left_join(n_samp_wdata, by = "target")
+
+# Plot data quantity by marker -----------------------------------------
+n_samp_wdata_thres <- 10
+mh_data_filteredbysamp %>%
+  select(target, n_samp_wdata) %>%
+  distinct() %>%
+  ggplot(mapping = aes(x = n_samp_wdata)) +
+  geom_histogram(bins = 20) +
+  geom_vline(xintercept = n_samp_wdata_thres, color = "blue") +
+  labs(x = "No. of Samples With Data", y = "No. of Markers")
+```
+
+This histogram shows the distribution of markers according to how many samples
+have data for each marker. Note that the threshold for number of targets with 
+data chosen above has already been applied. After this filter, `r 
+n_distinct(mh_data_filteredbysamp$sample_id)` samples remain in the dataset. 
+
+The vertical blue line marks `r n_samp_wdata_thres` samples with data. This 
+threshold is used to filter markers for subsequent analyses, removing those that 
+fall below.
+
+```{r}
+# Filter out loci with lots of missing data ----------------------------
+mh_data_filteredbyloci <- mh_data_filteredbysamp %>%
+  filter(n_samp_wdata >= n_samp_wdata_thres) %>%
+  select(-n_samp_wdata) %>%
+  # Remove explicit missing data
+  filter(n_read > 0)
+```
+
+# Stats
+
+Number of markers in the filtered dataset:
+
+```{r}
+n_distinct(mh_data_filteredbyloci$target)
+```
+
+Number of samples in the filtered dataset:
+
+```{r}
+n_distinct(mh_data_filteredbyloci$sample_id)
+```
+
+```{r}
+# Read in and join chromosome information ------------------------------
+chrom_info <- read_tsv(
+    inp$trg_coords, 
+    col_names = c("chrom", "start_pos", "end_pos", "target"), 
+    col_types = cols(
+      .default = col_character(), 
+      start_pos = col_integer(), 
+      end_pos = col_integer()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(chrom, target)
+mh_data_filteredbyloci <- mh_data_filteredbyloci %>%
+  left_join(chrom_info, by = "target")
+
 # Save filtered data ---------------------------------------------------
-mh_data_filtered %>%
+mh_data_filteredbyloci %>%
   # Calculate MOI. It would be more logical to do this in moi.Rmd, but 
   # that would complicate the pipeline.
   group_by(sample_id, target) %>%
@@ -259,5 +432,5 @@ mh_data_filtered %>%
   group_by(sample_id) %>%
   mutate(moi = max(n_hap)) %>%
   ungroup() %>%
-  write_csv(out$microhap_tidy)
+  write_csv(out$microhap_undiluted)
 ```

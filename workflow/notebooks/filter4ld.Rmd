@@ -25,7 +25,7 @@ opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
 # Hardcode parameters. These are not passed as shell arguments because 
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
-inp <- list(microhap_tidy = "../../results/microhap/microhap.csv")
+inp <- list(microhap_tidy = "../../results/microhap/microhap_undiluted.csv")
 out <- list(
   microhap_filtered = "../../results/microhap/microhap_filtered4ld.csv"
 )
@@ -42,25 +42,28 @@ The simplest approach is simply to remove all polyclonal loci.
 ## Reduction in Data Volume
 
 ```{r}
-# Read and prepare microhaplotype data ---------------------------------
+# Read microhaplotype data ---------------------------------------------
 mh_data <- read_csv(
-    inp$microhap_tidy,  
-    col_types = cols(
-      .default = col_character(), 
-      n_read = col_integer(), 
-      n_samp_wdata = col_integer(), 
-      n_trg_wdata = col_integer(), 
-      ParasiteDensity = col_double(), 
-      CT_Pv = col_double(), 
-      CT_Pf18s = col_double(), 
-      CT_PfvarATS = col_double(), 
-      Age = col_integer(), 
-      n_hap = col_integer(), 
-      moi = col_integer()
-    ), 
-    progress = FALSE
-  ) %>%
-  select(-n_samp_wdata)
+  inp$microhap_tidy,  
+  col_types = cols(
+    .default = col_character(), 
+    n_read = col_integer(), 
+    ParasiteDensity = col_double(), 
+    CT_Pv = col_double(), 
+    CT_Pf18s = col_double(), 
+    CT_PfvarATS = col_double(), 
+    Age = col_integer(), 
+    n_hap = col_integer(), 
+    moi = col_integer()
+  ), 
+  progress = FALSE
+)
+
+# Compute number of targets with data for each sample ------------------
+mh_data <- mh_data %>%
+  group_by(sample_id) %>%
+  mutate(n_trg_wdata = n_distinct(target)) %>%
+  ungroup()
 
 # Plot amount of data per sample prior to filtering --------------------
 mh_data %>%
@@ -178,7 +181,7 @@ Additional information on the affected targets is printed below:
 ```{r}
 # Print targets with very few samples after filtering ------------------
 mh_data_filtered %>%
-  filter(n_samp_wdata < 15) %>%
+  filter(n_samp_wdata < 10) %>%
   select(sample_id, target, n_read, ASV)
 ```
 
@@ -192,6 +195,6 @@ more data overall.
 ```{r}
 # Write filtered data to disk ------------------------------------------
 mh_data_filtered %>%
-  filter(n_samp_wdata >=15) %>%
+  filter(n_samp_wdata >= 10) %>%
   write_csv(out$microhap_filtered)
 ```

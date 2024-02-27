@@ -14,30 +14,29 @@ The simplest approach is simply to remove all polyclonal loci.
 ## Reduction in Data Volume
 
 ``` r
-# Read and prepare microhaplotype data ---------------------------------
+# Read microhaplotype data ---------------------------------------------
 mh_data <- read_csv(
-    inp$microhap_tidy,  
-    col_types = cols(
-      .default = col_character(), 
-      n_read = col_integer(), 
-      n_samp_wdata = col_integer(), 
-      n_trg_wdata = col_integer(), 
-      ParasiteDensity = col_double(), 
-      CT_Pv = col_double(), 
-      CT_Pf18s = col_double(), 
-      CT_PfvarATS = col_double(), 
-      Age = col_integer(), 
-      n_hap = col_integer(), 
-      moi = col_integer()
-    ), 
-    progress = FALSE
-  ) %>%
-  select(-n_samp_wdata)
-```
+  inp$microhap_tidy,  
+  col_types = cols(
+    .default = col_character(), 
+    n_read = col_integer(), 
+    ParasiteDensity = col_double(), 
+    CT_Pv = col_double(), 
+    CT_Pf18s = col_double(), 
+    CT_PfvarATS = col_double(), 
+    Age = col_integer(), 
+    n_hap = col_integer(), 
+    moi = col_integer()
+  ), 
+  progress = FALSE
+)
 
-    ## Warning: The following named parsers don't match the column names: Age
+# Compute number of targets with data for each sample ------------------
+mh_data <- mh_data %>%
+  group_by(sample_id) %>%
+  mutate(n_trg_wdata = n_distinct(target)) %>%
+  ungroup()
 
-``` r
 # Plot amount of data per sample prior to filtering --------------------
 mh_data %>%
   select(sample_id, n_trg_wdata) %>%
@@ -126,21 +125,21 @@ mh_data_filtered %>%
   select(target, sample_id, n_read, ASV)
 ```
 
-    ## # A tibble: 354 × 4
-    ## # Groups:   sample_id, target [177]
+    ## # A tibble: 102 × 4
+    ## # Groups:   sample_id, target [51]
     ##    target                      sample_id     n_read ASV   
     ##    <chr>                       <chr>          <int> <chr> 
-    ##  1 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD1      89 ASV7  
-    ##  2 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD1      89 ASV177
-    ##  3 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD1       7 ASV83 
-    ##  4 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD1       7 ASV364
-    ##  5 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD10     79 ASV7  
-    ##  6 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD10     79 ASV177
-    ##  7 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD11    103 ASV7  
-    ##  8 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD11    103 ASV177
-    ##  9 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD11      8 ASV83 
-    ## 10 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD11      8 ASV364
-    ## # ℹ 344 more rows
+    ##  1 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD14     77 ASV83 
+    ##  2 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD14     77 ASV364
+    ##  3 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD19   8293 ASV7  
+    ##  4 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD19   8293 ASV177
+    ##  5 PvP01_12_v1_1861301_1861500 PV_SWGA_OLD19   3886 ASV35 
+    ##  6 PvP01_12_v1_1861301_1861500 PV_SWGA_OLD19   3886 ASV37 
+    ##  7 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD19     19 ASV83 
+    ##  8 PvP01_11_v1_1483801_1484000 PV_SWGA_OLD19     19 ASV364
+    ##  9 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD25   1310 ASV7  
+    ## 10 PvP01_05_v1_1352001_1352200 PV_SWGA_OLD25   1310 ASV177
+    ## # ℹ 92 more rows
 
 For now, these alleles are simply filtered out for the LD calculation.
 
@@ -180,23 +179,27 @@ Additional information on the affected targets is printed below:
 ``` r
 # Print targets with very few samples after filtering ------------------
 mh_data_filtered %>%
-  filter(n_samp_wdata < 15) %>%
+  filter(n_samp_wdata < 10) %>%
   select(sample_id, target, n_read, ASV)
 ```
 
-    ## # A tibble: 10 × 4
+    ## # A tibble: 14 × 4
     ##    sample_id     target                      n_read ASV   
     ##    <chr>         <chr>                        <int> <chr> 
-    ##  1 PV_SWGA_OLD12 PvP01_05_v1_1352001_1352200    800 ASV156
-    ##  2 PV_SWGA_OLD12 PvP01_12_v1_1861301_1861500    268 ASV157
-    ##  3 PV_SWGA_OLD31 PvP01_12_v1_1861301_1861500    232 ASV157
-    ##  4 PV_SWGA_OLD33 PvP01_12_v1_1861301_1861500    248 ASV157
-    ##  5 PV_SWGA_OLD44 PvP01_05_v1_1352001_1352200   3208 ASV84 
-    ##  6 PV_SWGA_OLD47 PvP01_12_v1_1861301_1861500    651 ASV169
-    ##  7 PV_SWGA_OLD50 PvP01_05_v1_1352001_1352200    415 ASV154
-    ##  8 PV_SWGA_OLD6  PvP01_12_v1_1861301_1861500     51 ASV157
-    ##  9 PV_SWGA_OLD60 PvP01_12_v1_1861301_1861500   2544 ASV103
-    ## 10 PV_SWGA_OLD60 PvP01_05_v1_1352001_1352200    109 ASV256
+    ##  1 PV_SWGA_OLD31 PvP01_06_v1_596001_596200      282 ASV8  
+    ##  2 PV_SWGA_OLD31 PvP01_12_v1_1861301_1861500    232 ASV157
+    ##  3 PV_SWGA_OLD33 PvP01_12_v1_1861301_1861500    248 ASV157
+    ##  4 PV_SWGA_OLD37 PvP01_06_v1_596001_596200    11026 ASV8  
+    ##  5 PV_SWGA_OLD43 PvP01_06_v1_596001_596200     6236 ASV8  
+    ##  6 PV_SWGA_OLD44 PvP01_05_v1_1352001_1352200   3208 ASV84 
+    ##  7 PV_SWGA_OLD44 PvP01_06_v1_596001_596200      222 ASV213
+    ##  8 PV_SWGA_OLD45 PvP01_06_v1_596001_596200     3928 ASV8  
+    ##  9 PV_SWGA_OLD50 PvP01_06_v1_596001_596200      835 ASV8  
+    ## 10 PV_SWGA_OLD50 PvP01_05_v1_1352001_1352200    415 ASV154
+    ## 11 PV_SWGA_OLD51 PvP01_06_v1_596001_596200    49443 ASV8  
+    ## 12 PV_SWGA_OLD60 PvP01_12_v1_1861301_1861500   2544 ASV103
+    ## 13 PV_SWGA_OLD60 PvP01_05_v1_1352001_1352200    109 ASV256
+    ## 14 PV_SWGA_OLD61 PvP01_06_v1_596001_596200      240 ASV8
 
 These targets are removed, to avoid basing LD calculations on very
 little data.
@@ -209,6 +212,6 @@ preserves more data overall.
 ``` r
 # Write filtered data to disk ------------------------------------------
 mh_data_filtered %>%
-  filter(n_samp_wdata >=15) %>%
+  filter(n_samp_wdata >= 10) %>%
   write_csv(out$microhap_filtered)
 ```
