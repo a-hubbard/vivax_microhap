@@ -300,9 +300,11 @@ mh_data_filteredbycontrol <- mh_data_filteredbycontrol %>%
 # Separate and save dilutions ------------------------------------------
 diluted_samples <- mh_data_filteredbycontrol %>%
   filter(Dilution != "Neat") %$%
-  unique(sample_id)
+  unique(UCI_SID)
 mh_data_filteredbycontrol %>%
-  filter(sample_id %in% diluted_samples) %>%
+  filter(UCI_SID %in% diluted_samples) %>%
+  # Remove explicit missing data
+  filter(n_read > 0) %>%
   select(-Age, -Sex, -pop) %>%
   write_csv(out$microhap_dilutions)
 

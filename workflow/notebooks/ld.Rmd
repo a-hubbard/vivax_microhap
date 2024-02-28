@@ -26,6 +26,8 @@ library(tidyr)
 
 # Don't include code in PDF output
 opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+# Set default ggplot2 theme
+theme_set(theme_bw())
 # Set seed for reproducibility
 set.seed(59404051)
 

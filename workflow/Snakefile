@@ -23,6 +23,7 @@ localrules:
     check_snvs_indels, 
     asv2cigar, 
     tidy_microhap, 
+    analyze_dilutions, 
     csv2genind, 
     estimate_diversity, 
     filter4ld, 
@@ -42,6 +43,7 @@ notebook_basenames = [
     "read_counts", 
     "check_snvs_indels", 
     "tidy_microhap", 
+    "dilutions", 
     "diversity", 
     "filter4ld", 
     "ld"]
@@ -555,6 +557,18 @@ rule tidy_microhap:
         multiext(notebooks["tidy_microhap"], ".nb.html", ".pdf", ".md"), 
         microhap_dilutions, 
         microhap_undiluted
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Analyze effect of dilutions
+rule analyze_dilutions:
+    input:
+        microhap_dilutions, 
+        code = os.path.join("workflow", "notebooks", "dilutions.Rmd")
+    output: multiext(notebooks["dilutions"], ".nb.html", ".pdf", ".md")
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \

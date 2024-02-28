@@ -21,6 +21,8 @@ library(tidyr)
 
 # Don't include code in PDF output
 opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+# Set default ggplot2 theme
+theme_set(theme_bw())
 
 # Hardcode parameters. These are not passed as shell arguments because 
 # hardcoded values facilitate development and this document is not 
