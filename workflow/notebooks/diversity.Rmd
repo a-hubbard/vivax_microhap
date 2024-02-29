@@ -10,7 +10,9 @@ output:
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
 # Load required libraries ----------------------------------------------
 library(ape)
+library(Biostrings)
 library(hubpopgen)
+library(msa)
 library(pegas)
 library(poppr)
 library(seqinr)
@@ -43,7 +45,16 @@ inp <- list(
 
 # Marker Diversity
 
-```{r}
+```{r message = FALSE}
+tib2hap <- function(tib) {
+  tib %$%
+    Biostrings::DNAStringSet(asv_seq) %>%
+    msa::msa(method = "ClustalW") %>%
+    msa::msaConvert(type = "seqinr::alignment") %>%
+    ape::as.DNAbin() %>%
+    pegas::haplotype()
+}
+
 # Read in microhaplotype data ------------------------------------------
 mh_data <- read_csv(
     inp$mh_csv, 
@@ -71,11 +82,16 @@ asv_seqs <- tibble(
 mh_data <- mh_data %>%
   left_join(asv_seqs, by = c("ASV" = "asv_id"))
 
-filter(mh_data, target == "PvP01_14_v1_2861901_2862100") %$%
-  seqinr::as.alignment(nb = length(ASV), nam = ASV, seq = asv_seq) %>%
-  ape::as.DNAbin() %>%
-  pegas::haplotype() %>%
-  pegas::nuc.div()
+haps <- mh_data %>%
+  select(target, ASV, asv_seq) %>%
+  nest(haps_tib = c(ASV, asv_seq)) %>%
+  # PROBLEM: With the vera library data, this step throws a warning for 
+  # four of the targets: "no segregating site detected with these 
+  # options." I didn't investigate to figure out which targets or which 
+  # part of the tib2hap produces the warning. The message says it is 
+  # from haplotype.DNAbin() - so maybe the last step?
+  mutate(haps_hap = map(haps_tib, tib2hap))
+haps
 ```
 
 # Sample Diversity

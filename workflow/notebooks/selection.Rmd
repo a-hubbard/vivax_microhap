@@ -1,0 +1,73 @@
+---
+title: Test for Selective Pressure on each Marker
+author: Alfred Hubbard
+output:
+  html_notebook: default
+  pdf_document: default
+  github_document: default
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+library(ape)
+library(pegas)
+library(seqinr)
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(magrittr)
+library(purrr)
+library(readr)
+library(stringr)
+library(tidyr)
+
+# Don't include code in PDF output
+opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+# Set default ggplot2 theme
+theme_set(theme_bw())
+
+# Hardcode parameters. These are not passed as shell arguments because 
+# hardcoded values facilitate development and this document is not 
+# meant to be usable with other projects.
+inp <- list(
+  mh_data = "../../results/microhap/microhap_undiluted.csv", 
+  asv_seqs = "../../results/AmpSeq/ASVSeqs.fasta"
+)
+```
+
+```{r}
+# Read in microhaplotype data ------------------------------------------
+mh_data <- read_csv(
+    inp$mh_data, 
+    col_types = cols(
+      .default = col_character(), 
+      n_read = col_integer(), 
+      ParasiteDensity = col_double(), 
+      CT_Pv = col_double(), 
+      CT_Pf18s = col_double(), 
+      CT_PfvarATS = col_double(), 
+      Age = col_integer(), 
+      n_hap = col_integer(), 
+      moi = col_integer()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(target, sample_id, ASV)
+
+# Read and join ASV sequences ------------------------------------------
+asv_seqs_seqfadna <- seqinr::read.fasta(inp$asv_seqs, as.string = TRUE)
+asv_seqs <- tibble(
+  asv_id = names(asv_seqs_seqfadna), 
+  asv_seq = map_chr(asv_seqs_seqfadna, pluck, 1)
+)
+mh_data <- mh_data %>%
+  left_join(asv_seqs, by = c("ASV" = "asv_id"))
+
+filter(mh_data, target == "PvP01_14_v1_2861901_2862100") %$%
+  seqinr::as.alignment(nb = length(ASV), nam = ASV, seq = asv_seq) %>%
+  ape::as.DNAbin() %>%
+  pegas::tajima.test()
+```
+

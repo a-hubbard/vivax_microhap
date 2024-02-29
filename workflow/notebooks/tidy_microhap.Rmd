@@ -426,8 +426,8 @@ mh_data_filteredbyloci <- mh_data_filteredbyloci %>%
 
 # Save filtered data ---------------------------------------------------
 mh_data_filteredbyloci %>%
-  # Calculate MOI. It would be more logical to do this in moi.Rmd, but 
-  # that would complicate the pipeline.
+  # Calculate MOI. It would be more logical to do this in 
+  # diversity.Rmd, but that would complicate the pipeline.
   group_by(sample_id, target) %>%
   mutate(n_hap = n()) %>%
   ungroup() %>%
