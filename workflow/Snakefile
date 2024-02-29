@@ -7,7 +7,6 @@ localrules:
     dwnld_ref, 
     unzip_ref, 
     index_ref_bwa, 
-    index_ref_samtools, 
     primers2fastq, 
     find_sa_coords, 
     map_primers, 
@@ -16,19 +15,9 @@ localrules:
     captured_seq_bounds, 
     extract_captured_seq, 
     investigate_mapping, 
-    targets_bed2gff, 
-    assess_read_counts, 
-    list_fastqs, 
-    postproc_dada2,  
-    check_snvs_indels, 
-    asv2cigar, 
-    tidy_microhap, 
-    analyze_dilutions, 
     csv2genind, 
     estimate_diversity, 
-    filter4ld, 
-    check_ld, 
-    view_ld, 
+    assess_ld, 
     enrichment_consistency_plots, 
     dilution_consistency_plots, 
     push_results_notebooks, 
@@ -40,12 +29,7 @@ rendered_notebook_dir = os.path.join("results", "notebooks")
 notebooks = {}
 notebook_basenames = [
     "investigate_mapping", 
-    "read_counts", 
-    "check_snvs_indels", 
-    "tidy_microhap", 
-    "dilutions", 
     "diversity", 
-    "filter4ld", 
     "ld"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
@@ -56,8 +40,7 @@ nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
 # material and the main document
 figdir = os.path.join("results", "figs")
 figs = {
-    "enrichment_consistency_plots": "fig2", 
-    "dilution_consistency_plots": "fig3"}
+    "enrichment_consistency_plots": "fig2"}
 fig_flag_template = os.path.join(".flags", "push_{fig}")
 rule all:
     input:
@@ -80,9 +63,8 @@ primer_info = os.path.join(
     "resources", 
     "Microhaplotype primers_fixedRCpf_2023-03-02.xlsx")
 primers_tsv = os.path.join("results", "primers.tsv")
-ampseq_dir = os.path.join("results", "AmpSeq")
-fwd_primers = os.path.join(ampseq_dir, "fwd_primers.fasta")
-rev_primers = os.path.join(ampseq_dir, "rev_primers.fasta")
+fwd_primers = os.path.join("results", "fwd_primers.fasta")
+rev_primers = os.path.join("results", "rev_primers.fasta")
 rule refmt_primers:
     input:
         sd_id_file = sd_id_file, 
@@ -128,12 +110,6 @@ rule index_ref_bwa:
     input: ref_genome
     output: ref_genome_index
     shell: "bwa index {input}"
-# Necessary for AmpSeQC
-ref_genome_fai = ref_genome + ".fai"
-rule index_ref_samtools:
-    input: ref_genome
-    output: ref_genome_fai
-    shell: "samtools faidx {input}"
 # Create FASTQ with primer sequences
 prim_map_dir = os.path.join("results", "primer_mapping")
 primers_fq = os.path.join(prim_map_dir, "primers.fastq")
@@ -260,32 +236,7 @@ rule captured_seq_bounds:
                                 target+'\n']))
                         chrom = ""
                         target = ""
-# AmpSeQC requires the targets to be formatted as GFF
-trg_annot = os.path.join(prim_map_dir, "targets.gff")
-rule targets_bed2gff:
-    input: trg_coords_wprimers
-    output: trg_annot
-    run:
-        with open(input[0], 'r') as bed_f:
-            with open(output[0], 'w') as gff_f:
-                gff_f.write("##gff-version 3\n")
-                for line in bed_f:
-                    elements = line.rstrip().split()
-                    chrom = elements[0]
-                    start_pos = str(int(elements[1]) + 1)
-                    end_pos = elements[2]
-                    target = elements[3]
-                    gff_f.write(
-                        '\t'.join([
-                            chrom,
-                            "Pv_GTSeq",
-                            "amplicon",
-                            start_pos,
-                            end_pos,
-                            '.',
-                            '+',
-                            '.',
-                            "ID="+target+'\n']))
+
 # Extract sequence captured by primers from reference
 captured_seq = os.path.join(prim_map_dir, "captured_seq.fasta")
 rule extract_captured_seq:
@@ -305,270 +256,6 @@ rule investigate_mapping:
         code = os.path.join("workflow", "notebooks", "investigate_mapping.Rmd")
     output: 
         multiext(notebooks["investigate_mapping"], ".nb.html", ".pdf", ".md")
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
-
-# Run AmpSeQC pipeline
-# Create dictionary with sample ID keys and lists containing the forward 
-# and reverse FASTQs as values
-raw_seq_dir = os.path.join("resources", "seq_output")
-sample_fastqs = {}
-for fq in glob.glob(os.path.join(raw_seq_dir,"*.fastq")):
-    fq_elements = os.path.basename(fq).split('_')
-    if fq_elements[-2] == "R1" and fq_elements[0] != "Undetermined":
-        # Check assumption for next test
-        if len(fq_elements) != 7:
-            raise ValueError(
-                "FASTQ file name does not meet expectations:" + fq)
-        # The "OLD" and "NEW" samples are the same, except the SNP 
-        # markers were included for the NEW. However, the SNP markers 
-        # did not perform well, and there is one more sample in the 
-        # OLD set, so these are used.
-        elif "NEW" in fq_elements[2]:
-            continue
-        sample_id = '_'.join(fq_elements[:-4])
-        r2_fq = fq.replace('R1', 'R2')
-        sample_fastqs[sample_id] = [fq, r2_fq]
-# Path to AmpSeQC script
-ampseqc = "~/AmpSeQC/AmpSeQC.py"
-ampseqc_dir = os.path.join("results", "AmpSeQC")
-read_counts = os.path.join(ampseqc_dir, "read_counts.tsv")
-rule run_ampseqc:
-    input:
-        ref_genome_fai, 
-        targets = trg_annot, 
-        fastqs = [
-            fq for fq_pair in list(sample_fastqs.values()) for fq in fq_pair], 
-        ref = ref_genome
-    params:
-        fastq_args = lambda wildcards, input: 
-            "../../" + " ../../".join(input.fastqs)
-    # None of the sample-specific outputs are defined here because 
-    # these don't seem to be guaranteed to be produced for every sample
-    output:
-        read_counts = read_counts
-    resources:
-        time = 40, 
-        mem_mb = 2000
-    threads: 2
-    benchmark: os.path.join("benchmarks", "run_ampseqc.tsv")
-    conda: "ampseqc"
-    shell:
-        # To get AmpSeQC to run properly, I had to add the arguments 
-        # -a AGATCGGAAGAGC -a2 GATCGTCGGACTG to the Trim Galore step. 
-        # These are the first 13 bases of the reverse complements of 
-        # our reverse and forward adapters, respectively. Although this 
-        # behavior does not make sense to me, it appears that Trim 
-        # Galore checks both R1 and R2 for AGATCGGAAGAGC, leading it to 
-        # only trim the R1 reads, leading to a length mismatch between 
-        # R1 and R2, which in turn causes them to be considered 
-        # "improper" pairs and get filtered out by samtools. Manually 
-        # specifying the adapters resolves this issue.
-        """
-        cd {ampseqc_dir}
-        python {ampseqc} -c ../../{output.read_counts} -r ../../{input.ref} -a \
-            ../../{input.targets} --no_fastqc -p {threads} {params.fastq_args}
-        """
-sd_read_counts = os.path.join("resources", "vera_readcount.txt")
-rule assess_read_counts:
-    input:
-        read_counts, 
-        sd_read_counts, 
-        code = os.path.join("workflow", "notebooks", "read_counts.Rmd")
-    output: multiext(notebooks["read_counts"], ".nb.html", ".pdf", ".md")
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
-
-# Run AmpSeq
-# Create TSV file listing FASTQs
-fastq_list = os.path.join(ampseq_dir, "fastq_list.tsv")
-rule list_fastqs:
-    output: fastq_list
-    run:
-        with open(output[0], 'w') as out_f:
-            for s_id in sample_fastqs.keys():
-                out_f.write(
-                    '\t'.join([
-                        s_id,
-                        sample_fastqs[s_id][0],
-                        sample_fastqs[s_id][1]+'\n']))
-ampseq_tool_dir = "~/malaria-amplicon-pipeline"
-ampseq_seqtab = os.path.join(ampseq_dir, "run_dada2", "seqtab.tsv")
-ampseq_bimeras = os.path.join(ampseq_dir, "run_dada2", "ASVBimeras.txt")
-ampseq_reads_summ = os.path.join(ampseq_dir, "run_dada2", "reads_summary.txt")
-ampseq_trim_reports = []
-ampseq_preprocessed_fqs = []
-ampseq_prim_fqs = []
-for s_id in sample_fastqs.keys():
-    ampseq_trim_reports.append(
-        os.path.join(
-            ampseq_dir,
-            "preprocess_fq",
-            os.path.basename(sample_fastqs[s_id][0])+\
-                "_trimming_report.txt"))
-    ampseq_trim_reports.append(
-        os.path.join(
-            ampseq_dir,
-            "preprocess_fq",
-            os.path.basename(sample_fastqs[s_id][1])+\
-                "_trimming_report.txt"))
-    ampseq_preprocessed_fqs.append(
-        os.path.join(
-            ampseq_dir,
-            "preprocess_fq",
-            s_id+"_val_1.fq.gz"))
-    ampseq_preprocessed_fqs.append(
-        os.path.join(
-            ampseq_dir,
-            "preprocess_fq",
-            s_id+"_val_2.fq.gz"))
-    ampseq_prim_fqs.append(
-        os.path.join(ampseq_dir,"prim_fq",s_id+"_prim_1.fq.gz"))
-    ampseq_prim_fqs.append(
-        os.path.join(ampseq_dir,"prim_fq",s_id+"_prim_2.fq.gz"))
-# The FASTQs in run_dada2/filtered/ are not included in these outputs 
-# because they are not guaranteed to be created for each sample and 
-# the added safety of specifying them is not worth the added trouble of 
-# doing so
-ampseq_outputs = [
-    os.path.join(ampseq_dir,"preprocess_meta.txt"), 
-    os.path.join(ampseq_dir,"prim_meta.txt"), 
-    os.path.join(ampseq_dir,"stderr.txt"), 
-    os.path.join(ampseq_dir,"stdout.txt"), 
-    ampseq_bimeras, 
-    os.path.join(ampseq_dir,"run_dada2","errF.png"), 
-    os.path.join(ampseq_dir,"run_dada2","errR.png"), 
-    ampseq_reads_summ, 
-    ampseq_seqtab, 
-    os.path.join(ampseq_dir,"run_dada2","sequences_barplot.png"), 
-    os.path.join(ampseq_dir,"run_dada2","zeroReadSamples.txt"), 
-    ampseq_trim_reports, 
-    ampseq_preprocessed_fqs, 
-    ampseq_prim_fqs]
-rule run_ampseq:
-    input:
-        fastq_list = fastq_list, 
-        fwd_primers = fwd_primers, 
-        rev_primers = rev_primers
-    output: ampseq_outputs
-    resources:
-        time = 60, 
-        mem_mb = 64000
-    threads: 8
-    benchmark: os.path.join("benchmarks", "run_ampseq.tsv")
-    conda: "ampseq"
-    shell:
-        # Due to issues with the argument passing from 
-        # AmpliconPipeline.py to runDADA2.R, it is necessary to specify 
-        # some of the DADA2 parameters even though we are just using 
-        # the pipeline defaults. Also, I think the Neafsey group used a 
-        # trimRight of 2 (default is 0), but I'm not sure because they 
-        # describe this as applying to the 5' end in the documentation 
-        # of their scripts, despite the supplemental methods in 
-        # LaVerriere et al. (2022) and the DADA2 documentation 
-        # suggesting this would be the 3' end (as well as common sense 
-        # - it's called trimRight...). Plus, Paulo Manrique's tutorial 
-        # clearly uses a value of 2,2.
-        #
-        # Also, for reasons explained in run_ampseqc, above, I had to 
-        # add -a AGATCGGAAGAGC -a2 GATCGTCGGACTG to the Trim Galore 
-        # step.
-        "python {ampseq_tool_dir}/AmpliconPipeline.py --path_to_meta "
-        "{input.fastq_list} --pr1 {input.fwd_primers} --pr2 "
-        "{input.rev_primers} --Class parasite --trimRight '2,2' --minLen 30 "
-        "--max_consist 10 --omegaA '1e-120' --justConcatenate 0"
-asvtab = os.path.join(ampseq_dir, "asvtab.tsv")
-asv_fastas = os.path.join(ampseq_dir, "ASVSeqs.fasta")
-rule postproc_dada2:
-    input:
-        seqtab = ampseq_seqtab, 
-        bimeras = ampseq_bimeras, 
-        ref = captured_seq
-    output:
-        asv_fastas, 
-        asvtab = asvtab
-    conda: "ampseq"
-    shell:
-        "Rscript {ampseq_tool_dir}/postProc_dada2.R -s {input.seqtab} -ref "
-        "{input.ref} -b {input.bimeras} -o {output.asvtab} --fasta --strain "
-        "PvP01 --indel_filter 0.895"
-# Assess whether the SNV/indel edit distances are high enough that we 
-# should do filtering
-rule check_snvs_indels:
-    input:
-        asvtab, 
-        trg_coords_noprimers, 
-        code = os.path.join("workflow", "notebooks", "check_snvs_indels.Rmd")
-    output: multiext(notebooks["check_snvs_indels"], ".nb.html", ".pdf", ".md")
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
-asv2cigar_dir = os.path.join(ampseq_dir, "asv2cigar")
-seqtab_cigar = os.path.join(asv2cigar_dir, "seqtab_cigar.tsv")
-asv2cigar_tab = os.path.join(asv2cigar_dir, "asv2cigar_tab.tsv")
-rule asv2cigar:
-    input:
-        asv_fastas = asv_fastas, 
-        asvtab = asvtab, 
-        seqtab = ampseq_seqtab, 
-        ref = captured_seq
-    output:
-        seqtab_cigar = seqtab_cigar, 
-        asv2cigar_tab = asv2cigar_tab
-    params:
-        alignments_dir = os.path.join(asv2cigar_dir, "alignments")
-    conda: "ampseq"
-    shell:
-        "python {ampseq_tool_dir}/ASV_to_CIGAR.py --asv_to_cigar "
-        "{output.asv2cigar_tab} --alignments {params.alignments_dir} --amp_db "
-        "{input.ref} --min_reads 6 --exclude_bimeras {input.asv_fastas} "
-        "--max_snv_dist 50 --max_indel_dist 17 {input.asvtab} {input.seqtab} "
-        "{output.seqtab_cigar}"
-
-# Tidy and filter microhaplotypes
-vera_library = os.path.join(
-    "resources", 
-    "vera_library_2023-03-18_HemmingSchroeder_UCDavis.csv")
-vera_metadata = os.path.join("resources", "Pv_samples_Idaho.csv")
-vera_lane_summary = os.path.join("resources", "vera_lane_summary.csv")
-gbpcd_meta = os.path.join("resources", "GBPCD_meta.csv")
-microhap_dir = os.path.join("results", "microhap")
-microhap_dilutions = os.path.join(microhap_dir, "microhap_dilutions.csv")
-microhap_undiluted = os.path.join(microhap_dir, "microhap_undiluted.csv")
-rule tidy_microhap:
-    input:
-        seqtab_cigar, 
-        asv2cigar_tab, 
-        vera_library, 
-        vera_metadata, 
-        vera_lane_summary, 
-        gbpcd_meta, 
-        trg_coords_noprimers, 
-        code = os.path.join("workflow", "notebooks", "tidy_microhap.Rmd")
-    output: 
-        multiext(notebooks["tidy_microhap"], ".nb.html", ".pdf", ".md"), 
-        microhap_dilutions, 
-        microhap_undiluted
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
-
-# Analyze effect of dilutions
-rule analyze_dilutions:
-    input:
-        microhap_dilutions, 
-        code = os.path.join("workflow", "notebooks", "dilutions.Rmd")
-    output: multiext(notebooks["dilutions"], ".nb.html", ".pdf", ".md")
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -600,34 +287,7 @@ rule estimate_diversity:
         """
 
 # Check for linkage disequilibrium
-# Remove minor alleles for this analysis
-microhap_filtered4ld = os.path.join(microhap_dir, "microhap_filtered4ld.csv")
-rule filter4ld:
-    input:
-        mh_full = microhap_undiluted, 
-        code = os.path.join("workflow", "notebooks", "filter4ld.Rmd")
-    output: 
-        multiext(notebooks["filter4ld"], ".nb.html", ".pdf", ".md"), 
-        mh_filtered = microhap_filtered4ld
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
-microhap_filtered4ld_gd = os.path.join(
-    microhap_dir, 
-    "microhap_filtered4ld_gd.rds")
-ld_res_poppr = os.path.join("results", "ld_res_poppr.rds")
-seed = 59404051
-rule check_ld:
-    input:
-        mh_data = microhap_filtered4ld_gd, 
-        code = os.path.join("workflow", "scripts", "check_ld.R")
-    output: ld_res_poppr
-    shell:
-        "Rscript {input.code} --data_gd {input.mh_data} --seed {seed} --out "
-        "{output}"
-rule view_ld:
+rule assess_ld:
     input:
         ld_res_poppr, 
         microhap_filtered4ld_gd, 
@@ -658,28 +318,6 @@ rule enrichment_consistency_plots:
         os.path.join("results", "failed_matches.csv"), 
         os.path.join("results", "m_check.csv"), 
         os.path.join("results", "MOI_dfz_check.csv")
-    params:
-        basename = lambda wildcards, output: output[0][:-4]
-    shell: "Rscript {input.code} --out_base {params.basename}"
-vera_readcount = os.path.join("resources", "vera_readcount.txt")
-vera_totalreadcount = os.path.join("resources", "vera_totalreadcount.txt")
-rule dilution_consistency_plots:
-    input:
-        microhap_combined, 
-        vera_library, 
-        vera_readcount, 
-        vera_totalreadcount, 
-        vera_metadata, 
-        vera_lane_summary, 
-        code = os.path.join(
-            "workflow", 
-            "scripts", 
-            "consistency_check_dilutions.R")
-    output: 
-        multiext(os.path.join(figdir,figs["dilution_consistency_plots"]), 
-            ".pdf", 
-            ".png"), 
-        os.path.join("results", "match_fail.csv")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: "Rscript {input.code} --out_base {params.basename}"
