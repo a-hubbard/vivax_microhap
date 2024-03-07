@@ -21,6 +21,8 @@ dependencies:
   - bwa
   - samtools
   - bedtools
+  - bcftools
+  - vcftools
   # Prevent R from updating mid-project
   - r-base<4.2
   - r-tidyverse
@@ -34,11 +36,7 @@ dependencies:
   - r-ggpubr
   - r-ggpmisc
   - r-seqinr
-  - r-poppr
-  - r-pegas
-  - r-ape
-  - bioconductor-msa
-  - bioconductor-biostrings
+  - r-PopGenome
   # Recommended for many R packages
   - r-codetools
   # Required for hubutil R package

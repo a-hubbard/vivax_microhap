@@ -15,11 +15,18 @@ localrules:
     captured_seq_bounds, 
     extract_captured_seq, 
     investigate_mapping, 
-    csv2genind, 
-    estimate_diversity, 
-    assess_ld, 
+    assess_marker_performance, 
+    filter_bed, 
+    dwnld_metadata, 
+    dwnld_coi, 
+    index_bcf, 
+    filter_bcf_by_marker, 
+    concat_bcfs, 
+    filter_vcf_by_snpqc, 
+    compute_missbysamp, 
+    inspect_sample_properties, 
+    filter_samps, 
     enrichment_consistency_plots, 
-    dilution_consistency_plots, 
     push_results_notebooks, 
     push_figs, 
     clean
@@ -29,8 +36,8 @@ rendered_notebook_dir = os.path.join("results", "notebooks")
 notebooks = {}
 notebook_basenames = [
     "investigate_mapping", 
-    "diversity", 
-    "ld"]
+    "marker_performance", 
+    "sample_properties"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
 nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
@@ -262,51 +269,178 @@ rule investigate_mapping:
            output_dir = "{rendered_notebook_dir}")'
         """
 
-# Compute measures of genetic diversity
-rule csv2genind:
+# Assess marker performance based on May 2022 sequencing run
+microhap_combined = os.path.join(
+    "resources", 
+    "Microhap_PV_combined-data_2023-06-21")
+trgs2filter_dir = os.path.join("results", "trgs2filter")
+trgs2filter_good_amp = os.path.join(trgs2filter_dir, "good_amp.csv")
+rule assess_marker_performance:
     input:
-        mh_csv = "{mh_dataset}.csv", 
-        code = os.path.join("workflow", "scripts", "csv2genind.R")
-    output: "{mh_dataset}_gd.rds"
-    shell: "Rscript {input.code} --mh_csv {input.mh_csv} --mh_gd {output}"
-microhap_undiluted_gd = os.path.join(microhap_dir, "microhap_undiluted_gd.rds")
-sd_moi = os.path.join("resources", "vera-moi_out.tsv")
-rule estimate_diversity:
-    input:
-        microhap_undiluted, 
-        microhap_undiluted_gd, 
-        asv_fastas, 
-        sd_moi, 
-        code = os.path.join("workflow", "notebooks", "diversity.Rmd")
+        microhap_combined, 
+        code = os.path.join("workflow", "notebooks", "marker_performance.Rmd")
     output: 
-        multiext(notebooks["diversity"], ".nb.html", ".pdf", ".md")
+        multiext(notebooks["marker_performance"], ".nb.html", ".pdf", ".md"), 
+        trgs2filter_good_amp
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
         """
+# Filter marker set to those that performed well. Note that there are a 
+# number of targets that are in the SeekDeep ID file but do not show up 
+# in the May 2022 data (aside from SNP markers and other targets 
+# filtered out in previous steps). These targets are also filtered out 
+# in this step, in addition to those that were in the May 2022 data but 
+# didn't amplify well.
+trg_coords_good_amp = os.path.join(
+    prim_map_dir, 
+    "captured_seq_coords_good_amp.bed")
+rule filter_bed:
+    input: 
+        inp_bed = trg_coords_noprimers, 
+        targets_keep = trgs2filter_good_amp
+    output: trg_coords_good_amp
+    run:
+        # Read in list of targets to keep
+        with open(input.targets_keep, 'r') as targets_f:
+            targets_keep = []
+            for line in targets_f:
+                targets_keep.append(line.rstrip())
+        # Filter out targets that don't show up well in May 2022 data
+        with open(input.inp_bed, 'r') as inp_bed:
+            with open(output[0], 'w') as out_bed:
+                for line in inp_bed:
+                    elements = line.rstrip().split()
+                    if elements[3] in targets_keep:
+                        out_bed.write(line)
 
-# Check for linkage disequilibrium
-rule assess_ld:
-    input:
-        ld_res_poppr, 
-        microhap_filtered4ld_gd, 
-        microhap_filtered4ld, 
-        code = os.path.join("workflow", "notebooks", "ld.Rmd")
+
+# Download MalariaGEN data
+malariagen_dir = os.path.join("results", "MalariaGEN")
+malariagen_orig_dir = os.path.join(malariagen_dir, "orig")
+malariagen_metadata = os.path.join(malariagen_orig_dir, "Pv4_samples.txt")
+rule dwnld_metadata:
+    output: malariagen_metadata
+    shell: 
+        "wget -P {malariagen_orig_dir} "
+        "https://www.malariagen.net/wp-content/uploads/2023/11/Pv4_samples.txt"
+malariagen_coi = os.path.join(malariagen_orig_dir, "Pv4_fws.txt")
+rule dwnld_coi:
+    output: malariagen_coi
+    shell: 
+        "wget -P {malariagen_orig_dir} "
+        "https://www.malariagen.net/wp-content/uploads/2023/11/Pv4_fws.txt"
+chromosome_nums = list(map(lambda c: str(c).zfill(2),range(1, 15)))
+# It would be more efficient to download all the files with one wget, 
+# but I can't figure out how to tell Snakemake it can obtain all the 
+# wildcard outputs with one execution of a rule
+rule dwnld_genotypes:
     output:
-        multiext(notebooks["ld"], ".nb.html", ".pdf", ".md")
+        temp(os.path.join(malariagen_orig_dir,"Pv4_PvP01_{chrom}_v1.{ext}"))
+    resources:
+        time = 600, 
+        mem_mb = 2000, 
+        # Our cluster's data transfer node. Modify as necessary if 
+        # running on a different machine.
+        partition = "DTN"
+    threads: 1
+    benchmark: 
+        os.path.join("benchmarks", "dwnld_genotypes_{chrom}_{ext}.tsv")
+    shell: 
+        "wget -P {malariagen_orig_dir} "
+        "ftp://ngs.sanger.ac.uk/production/malaria/Resource/30/Pv4_vcf/"
+        "Pv4_PvP01_{wildcards.chrom}_v1.{wildcards.ext}"
+
+# Filter and concatenate MalariaGEN VCFs
+malariagen_chromrenamed = "Pv4_PvP01_{chrom}_v1_chromrenamed.bcf"
+# Rename chromosomes to match convention in reference genome
+rule rename_chroms:
+    input:
+        chrom_key = os.path.join("resources", "chrom_key.tsv"), 
+        vcf = os.path.join(malariagen_orig_dir, "Pv4_PvP01_{chrom}_v1.vcf.gz")
+    output: temp(malariagen_chromrenamed)
+    resources:
+        time = 10, 
+        mem_mb = 2000
+    threads: 1
+    benchmark: os.path.join("benchmarks", "rename_chroms_{chrom}.tsv")
+    shell: 
+        "bcftools annotate --rename-chrs {input.chrom_key} -O u -o {output} "
+        "{input.vcf}"
+malariagen_filteredbymarker = "Pv4_PvP01_{chrom}_v1_filteredbymarker.bcf"
+rule index_bcf:
+    input: "{bcf}"
+    output: temp("{bcf}.csi")
+    shell: "bcftools index {input}"
+# Filter to genomic regions of interest
+rule filter_bcf_by_marker:
+    input:
+        malariagen_chromrenamed + ".csi", 
+        bed = trg_coords_good_amp, 
+        vcf = malariagen_chromrenamed
+    output: temp(malariagen_filteredbymarker)
+    shell: "bcftools view -R {input.bed} -O u -o {output} {input.vcf}"
+malariagen_prep_dir = os.path.join(malariagen_dir, "preprocessed")
+malariagen_concat = os.path.join(malariagen_prep_dir, "concatenated.vcf.gz")
+# Concatenate data from all chromosomes into one VCF
+rule concat_bcfs:
+    input: expand(malariagen_filteredbymarker, chrom=chromosome_nums)
+    output: malariagen_concat
+    shell: "bcftools concat -o {output} {input}"
+# Filter out variants that failed the MalariaGEN QC process
+malariagen_filtered_by_snpqc = os.path.join(
+    malariagen_prep_dir, 
+    "filtered_by_snpqc.vcf.gz")
+rule filter_vcf_by_snpqc:
+    input: malariagen_concat
+    output: malariagen_filtered_by_snpqc
+    shell:
+        """
+        bcftools view --include 'FILTER="PASS"' -o {output} {input}
+        """
+# Compute the proportion of missing variants for each sample. Note that 
+# the reverse (proportion missing for each variant) is not addressed, 
+# because the haplotype-based analyses that are performed downstream 
+# are robust with respect to missing SNP calls.
+malariagen_missbysamp = os.path.join(malariagen_prep_dir, "missbysamp.tsv")
+rule compute_missbysamp:
+    input: malariagen_filtered_by_snpqc
+    output: malariagen_missbysamp
+    shadow: "full"
+    shell: "vcftools --gzvcf {input} --missing-indv --stdout > {output}"
+filtered_sample_list = os.path.join("results", "filtered_samples.txt")
+filtered_sample_metadata = os.path.join(
+    malariagen_prep_dir, 
+    "sample_metadata.csv")
+rule inspect_sample_properties:
+    input:
+        malariagen_metadata, 
+        malariagen_coi, 
+        malariagen_missbysamp, 
+        code = os.path.join("workflow", "notebooks", "sample_properties.Rmd")
+    output: 
+        multiext(notebooks["sample_properties"], ".nb.html", ".pdf", ".md"), 
+        filtered_sample_list, 
+        filtered_sample_metadata
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-            output_dir = "{rendered_notebook_dir}")'
+           output_dir = "{rendered_notebook_dir}")'
         """
-
-trgs2filter_dir = os.path.join("results", "trgs2filter")
+# Filter samples based on various factors investigated in the previous 
+# step
+malariagen_filtered_by_samp = os.path.join(
+    malariagen_prep_dir, 
+    "filtered_by_samp.vcf.gz")
+rule filter_samps:
+    input:
+        vcf = malariagen_filtered_by_snpqc, 
+        samp_list = filtered_sample_list
+    output: malariagen_filtered_by_samp
+    shell: "bcftools view -S {input.samp_list} -o {output} {input.vcf}"
 
 # Make figures
-microhap_combined = os.path.join(
-    "resources", 
-    "Microhap_PV_combined-data_2023-06-21")
 rule enrichment_consistency_plots:
     input:
         microhap_combined, 
