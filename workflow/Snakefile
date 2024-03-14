@@ -1,6 +1,28 @@
 import glob
 import os
 
+
+def expand_w_samp_list(wildcards, expression):
+    """Read in list of samples and use to expand provided expression.
+
+    This function reads the output of inspect_sample_properties to get 
+    the list of samples selected for analysis. It then uses this list 
+    to expand the provided wildcard expression.
+
+    Arguments:
+    wildcards -- Snakemake wildcards object
+    expression -- Either a string or a list containing one or more 
+        wildcard expressions containing the wildcard "samp"
+    """
+    samp_txt = checkpoints.inspect_sample_properties.get(**wildcards).output.\
+        samp_list
+    samp_l = []
+    with open(samp_txt, 'r') as samp_f:
+        for line in samp_f:
+            samp_l.append(line.rstrip())
+    return(expand(expression,samp=samp_l))
+
+
 # Identify rules to be executed locally
 localrules:
     refmt_primers, 
@@ -26,6 +48,8 @@ localrules:
     compute_missbysamp, 
     inspect_sample_properties, 
     filter_samps, 
+    apply_variants, 
+    filter2hapseq, 
     enrichment_consistency_plots, 
     push_results_notebooks, 
     push_figs, 
@@ -49,12 +73,16 @@ figdir = os.path.join("results", "figs")
 figs = {
     "enrichment_consistency_plots": "fig2"}
 fig_flag_template = os.path.join(".flags", "push_{fig}")
+microhap_dir = os.path.join("results", "microhap")
+mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
+mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
 rule all:
     input:
         expand("{nb}.{ext}", nb=list(notebooks.values()), ext=["pdf","md"]), 
         expand(nb_flag_template, nb=notebook_basenames), 
         expand(os.path.join(figdir,"{fig}.png"), fig=list(figs.values())), 
-        expand(fig_flag_template, fig=list(figs.values()))
+        expand(fig_flag_template, fig=list(figs.values())), 
+        mg_microhap_aligned_fasta_dir
 # For others attempting to run the pipeline on their own machine
 rule replicate:
     input:
@@ -253,8 +281,7 @@ rule extract_captured_seq:
         bed = trg_coords_noprimers
     output: captured_seq
     shell: 
-        "bedtools getfasta -fi {input.ref} -bed {input.bed} -nameOnly > "
-        "{output}"
+        "bedtools getfasta -fi {input.ref} -bed {input.bed} > {output}"
 # Check mapping for issues
 rule investigate_mapping:
     input:
@@ -281,7 +308,7 @@ rule assess_marker_performance:
         code = os.path.join("workflow", "notebooks", "marker_performance.Rmd")
     output: 
         multiext(notebooks["marker_performance"], ".nb.html", ".pdf", ".md"), 
-        trgs2filter_good_amp
+        selected_trgs = trgs2filter_good_amp
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -413,7 +440,7 @@ filtered_sample_list = os.path.join("results", "filtered_samples.txt")
 filtered_sample_metadata = os.path.join(
     malariagen_prep_dir, 
     "sample_metadata.csv")
-rule inspect_sample_properties:
+checkpoint inspect_sample_properties:
     input:
         malariagen_metadata, 
         malariagen_coi, 
@@ -421,8 +448,8 @@ rule inspect_sample_properties:
         code = os.path.join("workflow", "notebooks", "sample_properties.Rmd")
     output: 
         multiext(notebooks["sample_properties"], ".nb.html", ".pdf", ".md"), 
-        filtered_sample_list, 
-        filtered_sample_metadata
+        samp_list = filtered_sample_list, 
+        samp_metadata = filtered_sample_metadata
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -439,6 +466,75 @@ rule filter_samps:
         samp_list = filtered_sample_list
     output: malariagen_filtered_by_samp
     shell: "bcftools view -S {input.samp_list} -o {output} {input.vcf}"
+
+# Get haplotype sequences by applying variants to reference genome
+ref_w_variants = "{samp}_ref_w_variants.fa"
+# First, apply variants to unfiltered reference genome
+rule apply_variants:
+    input:
+        vcf = malariagen_filtered_by_samp, 
+        ref = ref_genome
+    output: temp(ref_w_variants)
+    shell:
+        # Note that this method of obtaining the haplotype sequence 
+        # ignores the read depth of each allele, which could be a 
+        # limitation. However, the MalariaGEN authors have used a 
+        # diploid VCF to encode situations where the read depths of the 
+        # reference and alternate alleles are somewhat close as 
+        # heterozygous calls (i.e., GT is 0/1). These calls are 
+        # replaced with the appropriate IUPAC ambiguity code using the 
+        # -I flag. Note that in this case this yields the same results 
+        # as the -H I argument (I verified this).
+        "bcftools consensus -s {wildcards.samp} -I -f {input.ref} {input.vcf} "
+        "> {output}"
+mg_microhap_fasta_dir = os.path.join(mg_microhap_dir, "fasta")
+hapseq = os.path.join(mg_microhap_fasta_dir, "{samp}_hapseq.fa")
+# Then, filter to the targets of interest
+rule filter2hapseq:
+    input: 
+        fasta = ref_w_variants, 
+        bed = trg_coords_good_amp
+    output: hapseq
+    # Index files for the input fasta are automatically generated
+    shadow: "full"
+    shell:
+        "bedtools getfasta -fi {input.fasta} -bed {input.bed} -fo {output}"
+# Finally, convert the data to tidy format and join metadata
+mg_microhap_tidy = os.path.join(mg_microhap_dir, "mg_microhap.csv")
+mg_microhap_aligned = os.path.join(mg_microhap_dir, "mg_microhap_aligned.rds")
+rule tidy_microhap:
+    input:
+        lambda wildcards: expand_w_samp_list(wildcards, hapseq), 
+        trg_coords = trg_coords_good_amp, 
+        sample_metadata = filtered_sample_metadata, 
+        code = os.path.join("workflow", "scripts", "tidy_microhap.R")
+    output: 
+        # Unfortunately there is no good alternative to specifying the 
+        # alignment FASTAs as a directory. The target list depends on 
+        # assess_marker_performance, and so cannot be expanded in 
+        # advance, and I'm not aware of a way to tell Snakemake that 
+        # one execution of a rule can create multiple wildcard outputs.
+        directory(mg_microhap_aligned_fasta_dir), 
+        aligned_haps = mg_microhap_aligned, 
+        mh_csv = mg_microhap_tidy
+    resources:
+        time = 10, 
+        mem_mb = 4000
+    threads: 1
+    benchmark: os.path.join("benchmarks", "tidy_microhap.tsv")
+    shell: 
+        # Snakemake does not create the aligned FASTA directory 
+        # automatically. I gather this is by design when you use a 
+        # directory as output - it expects the rule itself to create 
+        # it.
+        """
+        mkdir {mg_microhap_aligned_fasta_dir}
+        Rscript {input.code} --mh_fasta_dir {mg_microhap_fasta_dir} \
+            --trg_coords {input.trg_coords} --sample_metadata \
+            {input.sample_metadata} --aligned_haps {output.aligned_haps} \
+            --out_csv {output.mh_csv} --alignments_fasta_dir \
+            {mg_microhap_aligned_fasta_dir}
+        """
 
 # Make figures
 rule enrichment_consistency_plots:

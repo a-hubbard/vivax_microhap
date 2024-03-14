@@ -36,7 +36,9 @@ dependencies:
   - r-ggpubr
   - r-ggpmisc
   - r-seqinr
-  - r-PopGenome
+  - bioconductor-biostrings
+  - bioconductor-msa
+  - r-pegas
   # Recommended for many R packages
   - r-codetools
   # Required for hubutil R package
