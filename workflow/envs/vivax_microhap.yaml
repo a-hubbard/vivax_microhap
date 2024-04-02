@@ -39,6 +39,7 @@ dependencies:
   - bioconductor-biostrings
   - bioconductor-msa
   - r-pegas
+  - r-poppr
   # Recommended for many R packages
   - r-codetools
   # Required for hubutil R package

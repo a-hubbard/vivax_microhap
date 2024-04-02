@@ -50,6 +50,9 @@ localrules:
     filter_samps, 
     apply_variants, 
     filter2hapseq, 
+    alignment2hap, 
+    csv2genind, 
+    estimate_diversity, 
     enrichment_consistency_plots, 
     push_results_notebooks, 
     push_figs, 
@@ -61,7 +64,8 @@ notebooks = {}
 notebook_basenames = [
     "investigate_mapping", 
     "marker_performance", 
-    "sample_properties"]
+    "sample_properties", 
+    "diversity"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
 nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
@@ -440,6 +444,7 @@ filtered_sample_list = os.path.join("results", "filtered_samples.txt")
 filtered_sample_metadata = os.path.join(
     malariagen_prep_dir, 
     "sample_metadata.csv")
+unfiltered_sites = os.path.join("results", "unfiltered_sites.geojson")
 checkpoint inspect_sample_properties:
     input:
         malariagen_metadata, 
@@ -449,7 +454,8 @@ checkpoint inspect_sample_properties:
     output: 
         multiext(notebooks["sample_properties"], ".nb.html", ".pdf", ".md"), 
         samp_list = filtered_sample_list, 
-        samp_metadata = filtered_sample_metadata
+        samp_metadata = filtered_sample_metadata, 
+        sites = unfiltered_sites
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -534,6 +540,45 @@ rule tidy_microhap:
             {input.sample_metadata} --aligned_haps {output.aligned_haps} \
             --out_csv {output.mh_csv} --alignments_fasta_dir \
             {mg_microhap_aligned_fasta_dir}
+        """
+
+# Marker and sample diversity
+# Convert tibble of msa alignments to pegas haplotypes and add 
+# haplotype IDs to the main CSV file
+mg_microhap_haplo = os.path.join(mg_microhap_dir, "mg_microhap_haplo.rds")
+mg_microhap_w_hap_ids = os.path.join(
+    mg_microhap_dir, 
+    "mg_microhap_w_hap_ids.csv")
+rule alignment2hap:
+    input:
+        mh_aligned = mg_microhap_aligned, 
+        mh_csv = mg_microhap_tidy, 
+        code = os.path.join("workflow", "scripts", "alignment2hap.R")
+    output: 
+        mh_haplo = mg_microhap_haplo, 
+        mh_csv_w_hap_ids = mg_microhap_w_hap_ids
+    shell:
+        "Rscript {input.code} --alignments {input.mh_aligned} --mh_csv "
+        "{input.mh_csv} --haplotypes {output.mh_haplo} --mh_csv_w_hap_ids "
+        "{output.mh_csv_w_hap_ids}"
+mg_microhap_gd = os.path.join(mg_microhap_dir, "mg_microhap_gd.rds")
+rule csv2genind:
+    input:
+        mh_csv = mg_microhap_w_hap_ids, 
+        code = os.path.join("workflow", "scripts", "csv2genind.R")
+    output: mg_microhap_gd
+    shell: "Rscript {input.code} --mh_csv {input.mh_csv} --mh_gd {output}"
+rule estimate_diversity:
+    input:
+        mg_microhap_haplo, 
+        mg_microhap_gd, 
+        code = os.path.join("workflow", "notebooks", "diversity.Rmd")
+    output: 
+        multiext(notebooks["diversity"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
         """
 
 # Make figures
