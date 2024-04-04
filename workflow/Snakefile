@@ -41,7 +41,7 @@ localrules:
     filter_bed, 
     dwnld_metadata, 
     dwnld_coi, 
-    index_bcf, 
+    index_variant_file, 
     filter_bcf_by_marker, 
     concat_bcfs, 
     filter_vcf_by_snpqc, 
@@ -53,6 +53,7 @@ localrules:
     alignment2hap, 
     csv2genind, 
     estimate_diversity, 
+    assess_ld, 
     enrichment_consistency_plots, 
     push_results_notebooks, 
     push_figs, 
@@ -65,7 +66,8 @@ notebook_basenames = [
     "investigate_mapping", 
     "marker_performance", 
     "sample_properties", 
-    "diversity"]
+    "diversity", 
+    "ld"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
 nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
@@ -400,9 +402,10 @@ rule rename_chroms:
         "bcftools annotate --rename-chrs {input.chrom_key} -O u -o {output} "
         "{input.vcf}"
 malariagen_filteredbymarker = "Pv4_PvP01_{chrom}_v1_filteredbymarker.bcf"
-rule index_bcf:
-    input: "{bcf}"
-    output: temp("{bcf}.csi")
+# Index VCFs or BCFs
+rule index_variant_file:
+    input: "{variant_file}"
+    output: temp("{variant_file}.csi")
     shell: "bcftools index {input}"
 # Filter to genomic regions of interest
 rule filter_bcf_by_marker:
@@ -475,9 +478,10 @@ rule filter_samps:
 
 # Get haplotype sequences by applying variants to reference genome
 ref_w_variants = "{samp}_ref_w_variants.fa"
-# First, apply variants to unfiltered reference genome
+# Apply variants to unfiltered reference genome
 rule apply_variants:
     input:
+        malariagen_filtered_by_samp + ".csi", 
         vcf = malariagen_filtered_by_samp, 
         ref = ref_genome
     output: temp(ref_w_variants)
@@ -495,7 +499,7 @@ rule apply_variants:
         "> {output}"
 mg_microhap_fasta_dir = os.path.join(mg_microhap_dir, "fasta")
 hapseq = os.path.join(mg_microhap_fasta_dir, "{samp}_hapseq.fa")
-# Then, filter to the targets of interest
+# Filter to the targets of interest
 rule filter2hapseq:
     input: 
         fasta = ref_w_variants, 
@@ -579,6 +583,34 @@ rule estimate_diversity:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Linkage disequilibrium
+ld_res = os.path.join("results", "ld_res.rds")
+seed = 59404051
+rule check_ld:
+    input:
+        mh_data = mg_microhap_gd, 
+        code = os.path.join("workflow", "scripts", "check_ld.R")
+    output: ld_res
+    resources:
+        time = 60, 
+        mem_mb = 2000
+    threads: 1
+    benchmark: os.path.join("benchmarks", "check_ld.tsv")
+    shell:
+        "Rscript {input.code} --data_gd {input.mh_data} --seed {seed} --out "
+        "{output}"
+rule assess_ld:
+    input:
+        ld_res, 
+        code = os.path.join("workflow", "notebooks", "ld.Rmd")
+    output:
+        multiext(notebooks["ld"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+            output_dir = "{rendered_notebook_dir}")'
         """
 
 # Make figures

@@ -11,13 +11,9 @@ output:
 # Load required libraries ----------------------------------------------
 # These will be referenced without the `package::` construct, and thus 
 # are loaded second to avoid masking
-library(dplyr)
-library(ggplot2)
 library(knitr)
 library(magrittr)
-library(readr)
-library(stringr)
-library(tidyr)
+library(tidyverse)
 
 # Don't include code in PDF output
 opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")

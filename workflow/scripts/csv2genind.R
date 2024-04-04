@@ -1,15 +1,12 @@
 # Convert microhaplotype data from CSV to genind format
 
 # Load required libraries
-library(hubpopgen)
-library(pegas)
+library(adegenet)
 # These libraries are referenced without the :: construction, and so 
 # are loaded second to avoid masking
-library(dplyr)
 library(magrittr)
 library(optparse)
-library(readr)
-library(stringr)
+library(tidyverse)
 
 # Parse arguments ------------------------------------------------------
 opts <- list(
@@ -42,20 +39,23 @@ mh_data <- read_csv(
     ), 
     progress = FALSE
   ) %>%
-  select(target, sample_id, hap_id, geog) %>%
-  # Remove samples without defined geographies, which means I decided 
-  # the sample size was insufficient for population-level analysis
-  filter(! is.na(geog))
+  select(target, sample_id, hap_id, Population, geog) %>%
+  rename(Geography = geog)
 
 # Convert to genind object and save ------------------------------------
-mh_data %>%
+mh_data_wide <- mh_data %>%
   # Required by adegenet
   mutate(target = str_replace_all(target, "\\.", "_")) %>%
-  rename(
-    sample_ID = sample_id, 
-    locus = target, 
-    allele = hap_id, 
-    pop = geog
+  mutate(Population = as.factor(Population)) %>%
+  pivot_wider(values_from = "hap_id", names_from = "target") %>%
+  column_to_rownames("sample_id")
+mh_data_wide %>%
+  select(-Population, -Geography) %>%
+  # Note that while it is not mentioned in the documentation, it 
+  # would appear based on empirical testing that this does not alter 
+  # the order of the samples
+  adegenet::df2genind(
+    ploidy = 1, 
+    strata = select(mh_data_wide, Population, Geography)
   ) %>%
-  hubpopgen::tib2genind() %>%
   write_rds(arg$mh_gd)

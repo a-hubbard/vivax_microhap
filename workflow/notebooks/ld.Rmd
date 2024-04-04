@@ -9,173 +9,71 @@ output:
 
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
 # Load required libraries ----------------------------------------------
-library(pegas)
-library(poppr)
 # These will be referenced without the `package::` construct, and thus 
 # are loaded second to avoid masking
-library(dplyr)
-library(ggplot2)
 library(knitr)
 library(magrittr)
-library(purrr)
-library(readr)
-library(stringr)
-library(tibble)
-library(tidyr)
+library(tidyverse)
 
 # Don't include code in PDF output
 opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
 # Set default ggplot2 theme
 theme_set(theme_bw())
-# Set seed for reproducibility
-set.seed(59404051)
 
 # Hardcode parameters. These are not passed as shell arguments because 
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
-inp <- list(
-  microhap_gd = "../../results/microhap/MalariaGEN/mg_microhap_gd.rds", 
-  microhap_tidy = "../../results/microhap/MalariaGEN/mg_microhap.csv"
-)
+inp <- list(ld_res = "../../results/ld_res.rds")
 ```
 
-# pegas
+To evaluate linkage disequilibrium (LD) between pairs of loci, the $\bar{r}_{d}$ 
+measure was used in favor of the more common index of association. The index of 
+association is a ratio of the variance observed between individuals at each 
+locus and the variance expected under conditions of linkage equilibrium. This 
+measure increases with the number of loci, so $\bar{r}_{d}$ was developed as an
+alternative that approximates the index of association while avoiding this
+limitation.
 
-Linkage disequilibrium (LD) among locus pairs is estimated with the $T_2$ 
-statistic described in Zaykin et al. (2008). This method is based on the 
-correlation among allele frequencies, and "can be interpreted as the total 
-correlation between a pair of loci."
+LD was estimated using the populations defined by the MalariaGEN authors. A 
+correction for clonal samples was performed prior to making the LD calculation, 
+because having multiple copies of the same multi-locus genotype can bias the 
+calculation. Significance was estimated using permutations. 
 
-This statistic was calculated among all pairs of loci, excluding those that are
-on different chromosomes.
+The distribution of *p*-values obtained between all sample pairs is shown below.
 
-```{r}
-# Read in data and covert to the loci class ----------------------------
-mh_data_gd <- read_rds(inp$microhap_gd) %>%
-  # Filter out loci with only one allele
-  poppr::informloci()
-mh_data_l <- pegas::genind2loci(mh_data_gd)
-```
 
-```{r}
-# Create tibble of locus name/number pairs -----------------------------
-locus_nums <- attr(mh_data_l, "locicol")
-locus_names <- names(mh_data_l)[locus_nums]
-locus_num_name_key <- tibble(locus_name = locus_names, locus_num = locus_nums)
-ld_res <- combn(locus_nums, 2) %>%
-  t() %>%
-  as_tibble() %>%
-  rename(locus_a_num = V1, locus_b_num = V2) %>%
-  left_join(locus_num_name_key, by = c("locus_a_num" = "locus_num")) %>%
-  rename(locus_a_name = locus_name) %>%
-  left_join(locus_num_name_key, by = c("locus_b_num" = "locus_num")) %>%
-  rename(locus_b_name = locus_name)
-
-# Read in microhaplotype data table with metadata ----------------------
-mh_data <- read_csv(
-  inp$microhap_tidy, 
-  col_types = cols(
-    .default = col_character(), 
-    Lat = col_double(), 
-    Long = col_double(), 
-    Year = col_integer(), 
-    `% callable` = col_double(), 
-    Fws = col_double(), 
-    F_MISS = col_double()
-  ), 
-  progress = FALSE
-)
-
-# Join and filter by chromosome information ----------------------------
-chrom_info <- mh_data %>%
-  select(target, chrom) %>%
-  distinct()
-ld_res <- ld_res %>%
-  left_join(chrom_info, by = c("locus_a_name" = "target")) %>%
-  rename(chrom_a = chrom) %>%
-  left_join(chrom_info, by = c("locus_b_name" = "target")) %>%
-  rename(chrom_b = chrom) %>%
-  # Regardless of what the test shows, we know that targets on 
-  # different chromosomes cannot be physically linked
-  filter(chrom_a == chrom_b) %>%
-  select(-chrom_a, -chrom_b)
-
-# Estimate LD ----------------------------------------------------------
-ld_res <- ld_res %>%
-  # Note that pegas prints a warning message about unphased genotypes 
-  # when an individual is missing data at a given locus, regardless of 
-  # whether the genotypes actually are unphased (or, indeed, regardless 
-  # of whether the ploidy is even greater than 1)
-  mutate(
-    ld_res = map2(
-      locus_a_num, 
-      locus_b_num, 
-      # Note that while in the locicol attribute the pop column is 
-      # included in locus numbering (meaning the first locus column is 
-      # two), this function wants the locus numbering to start at 1...
-      ~pegas::LD(mh_data_l, locus = c(.x - 1, .y - 1))
-    )
-  ) %>%
-  mutate(T2_pval = map_dbl(ld_res, pluck, "T2", "P-val")) %>%
-  # Remove NA p-values, which indicate at least one of the loci only 
-  # has one allele
-  filter(! is.na(T2_pval))
+```{r warning = FALSE}
+# Read and tidy LD results ---------------------------------------------
+pairwise_ld_res <- read_rds(inp$ld_res) %>%
+  as_tibble(rownames = "locus_pair") %>%
+  mutate(across(-locus_pair, as.double)) %>%
+  separate(locus_pair, c("locus_a", "locus_b"), sep = ":")
 
 # Visualize distribution of p-values -----------------------------------
-ld_res %>%
-  ggplot(mapping = aes(x = T2_pval)) +
+pairwise_ld_res %>%
+  ggplot(mapping = aes(x = p.rD)) +
   geom_histogram(bins = 20) +
-  labs(x = "T_2 Test p-value", y = "No. of Locus Pairs")
+  labs(x = "p-value", y = "No. of Locus Pairs")
 ```
 
-The distribution of *p*-values is given above.
+A uniform distribution is expected if the null hypothesis of no linkage is true. 
+This histogram shows a distinct left skew, suggesting there may be linkage in 
+our dataset.
 
-The Bonferroni-adjusted threshold for significance at the 0.05 level is:
+However, many hypothesis tests were performed to obtain these results, so before 
+concluding that any pairs are in significant LD, a correction for multiple 
+testing should be performed. This was done with the Bonferroni method. This 
+approach is sometimes considered too conservative, so a generous *p*-value of 
+0.05 was used to help compensate for that possibility. The Bonferroni-corrected 
+significance threshold for this case is:
 
 ```{r}
-bf_thres <- 0.001 / nrow(ld_res)
+# Compute and apply Bonferroni correction for multiple testing ---------
+bf_thres <- 0.05 / nrow(pairwise_ld_res)
 bf_thres
-ld_res_signif <- ld_res %>%
-  filter(T2_pval < bf_thres)
-
-ld_res_signif %>%
-  select(locus_a_name, locus_b_name, T2_pval) %>%
-  arrange(T2_pval) %>%
-  print(n = 30)
-
-loc2filter <- vector()
-ld_res_filtered <- filter(
-  ld_res, 
-  (! (locus_a_name %in% loc2filter)) & (! (locus_b_name %in% loc2filter))
-)
-while (nrow(filter(ld_res_filtered, T2_pval < bf_thres)) > 0) {
-  # Compute occurrence of each locus in high LD pairs by counting the 
-  # appearances of each locus in each "side" of the pairs and then 
-  # summing the two numbers. This approach is valid because all pairs 
-  # should be unique.
-  high_ld_loc_a <- ld_res_filtered %>%
-    rename(locus = locus_a_name) %>%
-    group_by(locus) %>%
-    summarize(loc_prev = n(), .groups = "drop")
-  high_ld_loc_b <- ld_res_filtered %>%
-    rename(locus = locus_b_name) %>%
-    group_by(locus) %>%
-    summarize(loc_prev = n(), .groups = "drop")
-  high_ld_loc <- bind_rows(high_ld_loc_a, high_ld_loc_b) %>%
-    group_by(locus) %>%
-    summarize(loc_prev = sum(loc_prev), .groups = "drop") %>%
-    arrange(desc(loc_prev))
-  # Add locus in most high LD pairs to loc2filter
-  loc2filter <- append(loc2filter, high_ld_loc$locus[[1]])
-  # Update ld_res_filtered
-  ld_res_filtered <- filter(
-    ld_res_filtered, 
-    (! (locus_a_name %in% loc2filter)) & (! (locus_b_name %in% loc2filter))
-  )
-}
-loc2filter
-ld_res_filtered
+pairwise_ld_res_signif <- pairwise_ld_res %>%
+  filter(p.rD < bf_thres)
 ```
 
-There are `r nrow(ld_res_signif)` loci pairs that have significant LD at 
-this threshold. Therefore, no filtering is necessary to address LD.
+There are `r nrow(pairwise_ld_res_signif)` loci pairs that have significant LD 
+at this threshold. Therefore, no filtering is necessary to address LD.

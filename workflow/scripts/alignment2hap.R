@@ -5,12 +5,9 @@ library(ape)
 library(pegas)
 # These libraries are referenced without the :: construction, and so 
 # are loaded second to avoid masking
-library(dplyr)
 library(magrittr)
 library(optparse)
-library(purrr)
-library(readr)
-library(tidyr)
+library(tidyverse)
 
 # Parse arguments ------------------------------------------------------
 opts <- list(

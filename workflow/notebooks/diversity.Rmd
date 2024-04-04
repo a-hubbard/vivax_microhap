@@ -9,18 +9,14 @@ output:
 
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
 # Load required libraries ----------------------------------------------
+library(adegenet)
 library(pegas)
 library(poppr)
 # These will be referenced without the `package::` construct, and thus 
 # are loaded second to avoid masking
-library(dplyr)
-library(ggplot2)
 library(knitr)
 library(magrittr)
-library(purrr)
-library(readr)
-library(stringr)
-library(tidyr)
+library(tidyverse)
 
 # Don't include code in PDF output
 opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
@@ -79,27 +75,69 @@ This bar plot shows the nucleotide diversity for each marker. There is
 considerable variability in the diversity of these markers, and a number don't
 have any segregating sites, leading to a diversity of 0.
 
+# Genotype Accumulation Curve
+
+A genotype accumulation curve was calculated to assess whether there are
+sufficient markers in the dataset to distinguish individual samples.
+
+First, loci with only one allele were filtered out of the dataset:
+
+```{r}
+mh_data_gd <- read_rds(inp$mh_gd) %>%
+  poppr::informloci()
+```
+
+Then the curve was plotted:
+
+```{r fig.width = 10}
+poppr::genotype_curve(mh_data_gd, sample = 1000, quiet = TRUE)
+```
+
+From this figure, it is apparent that there are plenty of markers in the dataset
+to distinguish different samples, even once loci with only one allele were
+removed. In fact, it appears that only about 15 markers would be sufficient for
+this purpose.
+
 # Sample Diversity
 
 To complement marker diversity, sample-level diversity was also estimated with
-Nei's expected heterozygosity. For this analysis, samples were grouped by
-geography. Samples from sites with little data were either removed or merged
-with other, nearby sites.
+Nei's expected heterozygosity and evenness was calculated with the $E_5$ 
+statistic. Two population strata were used: populations as defined by the 
+MalariaGEN project ("Population") and "geographies" defined in this project by 
+either removing sites with little data or merging them with other, nearby sites 
+("Geography").
+
+## By Population
 
 ```{r}
-# Read in microhaplotype genind object ---------------------------------
-mh_data_gd <- read_rds(inp$mh_gd)
-
 # Compute summary statistics, filtering to those of interest -----------
+adegenet::setPop(mh_data_gd) <- ~Population
 poppr::poppr(mh_data_gd) %>%
-  select(Pop, N, MLG, Hexp)
+  select(Pop, N, MLG, Hexp, E.5)
 ```
 
 This table gives the number of individuals, the number of multi-locus genotypes
-(MLGs) observed in those individuals, and Nei's expected heterozygosity for each
-population.
+(MLGs) observed in those individuals, Nei's expected heterozygosity, and 
+evenness for each population.
 
-This suggests that the overall genetic diversity is fairly low, likely driven by
-low evenness for many of the markers (i.e., most markers are dominated by one
-genotype). The geographies are fairly comparable, with Colombia and Indonesia
-standing out as slightly less diverse than the other locations.
+Diversity is generally fairly low and evenness is high, although Latin America 
+(LAM) has a lower evenness than other populations and Oceania (OCE) has a 
+particularly low diversity.
+
+## By Geography
+
+```{r warning = FALSE}
+# Compute summary statistics, filtering to those of interest -----------
+adegenet::setPop(mh_data_gd) <- ~Geography
+# This throws a warning that it is filtering out individuals with 
+# missing population information. This is the desired behavior, hence 
+# why warnings are suppressed for this chunk.
+poppr::poppr(mh_data_gd) %>%
+  select(Pop, N, MLG, Hexp, E.5)
+```
+
+Again, overall genetic diversity is fairly low, likely driven by high evenness 
+for many of the markers (i.e., most markers are dominated by one genotype). The 
+geographies are fairly comparable, with Colombia and Indonesia standing out as 
+slightly less diverse than the other locations. Evenness is generally high, with 
+the exception of Colombia, which is somewhat lower.

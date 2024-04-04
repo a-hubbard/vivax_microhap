@@ -4,11 +4,9 @@
 library(seqinr)
 # These libraries are referenced without the :: construction, and so 
 # are loaded second to avoid masking
-library(dplyr)
 library(optparse)
-library(readr)
 library(readxl)
-library(stringr)
+library(tidyverse)
 
 # Parse arguments ------------------------------------------------------
 opts <- list(
