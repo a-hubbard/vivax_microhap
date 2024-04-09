@@ -54,6 +54,8 @@ localrules:
     csv2genind, 
     estimate_diversity, 
     assess_ld, 
+    assess_selection, 
+    filter4popgen, 
     enrichment_consistency_plots, 
     push_results_notebooks, 
     push_figs, 
@@ -67,7 +69,8 @@ notebook_basenames = [
     "marker_performance", 
     "sample_properties", 
     "diversity", 
-    "ld"]
+    "ld", 
+    "selection"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
 nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
@@ -612,6 +615,52 @@ rule assess_ld:
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
             output_dir = "{rendered_notebook_dir}")'
         """
+
+# Selection
+# Convert the msa alignment objects to ape DNAbin objects, subset to 
+# have one for each MalariaGEN population
+mh_popbin = os.path.join(mg_microhap_dir, "mg_microhap_popbin.rds")
+rule alignment2popbin:
+    input:
+        mh_aligned = mg_microhap_aligned, 
+        mh_csv = mg_microhap_tidy, 
+        code = os.path.join("workflow", "scripts", "alignment2popbin.R")
+    output: mh_popbin
+    resources:
+        time = 5, 
+        mem_mb = 1000
+    threads: 1
+    benchmark: os.path.join("benchmarks", "alignment2popbin.tsv")
+    shell:
+        "Rscript {input.code} --alignments {input.mh_aligned} --mh_csv "
+        "{input.mh_csv} --out {output}"
+trgs2filter_selec = os.path.join("results", "trgs2filter_selec.csv")
+rule assess_selection:
+    input:
+        mh_popbin, 
+        code = os.path.join("workflow", "notebooks", "selection.Rmd")
+    output:
+        multiext(notebooks["selection"], ".nb.html", ".pdf", ".md"), 
+        trgs2filter_selec
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+            output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Filter data for selection
+mg_microhap_filtered4popgen = os.path.join(
+    mg_microhap_dir, 
+    "mg_microhap_filtered4popgen.csv")
+rule filter4popgen:
+    input:
+        mh_in = mg_microhap_w_hap_ids, 
+        trgs2filter = trgs2filter_selec, 
+        code = os.path.join("workflow", "scripts", "filter4popgen.R")
+    output: mg_microhap_filtered4popgen
+    shell:
+        "Rscript {input.code} --mh_in {input.mh_in} --trgs2filter "
+        "{input.trgs2filter} --mh_out {output}"
 
 # Make figures
 rule enrichment_consistency_plots:
