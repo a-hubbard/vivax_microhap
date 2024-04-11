@@ -56,6 +56,7 @@ localrules:
     assess_ld, 
     assess_selection, 
     filter4popgen, 
+    analyze_relatedness, 
     enrichment_consistency_plots, 
     push_results_notebooks, 
     push_figs, 
@@ -70,7 +71,8 @@ notebook_basenames = [
     "sample_properties", 
     "diversity", 
     "ld", 
-    "selection"]
+    "selection", 
+    "relatedness"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
 nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
@@ -661,6 +663,38 @@ rule filter4popgen:
     shell:
         "Rscript {input.code} --mh_in {input.mh_in} --trgs2filter "
         "{input.trgs2filter} --mh_out {output}"
+
+# IBD-based relatedness
+rel_mat = os.path.join("results", "rel_mat.rds")
+rule compute_rel:
+    input:
+        mh_data = mg_microhap_filtered4popgen, 
+        code = os.path.join("workflow", "scripts", "compute_rel.R")
+    resources: 
+        time = 10, 
+        mem_mb = 2000
+    threads: 1
+    benchmark: os.path.join("benchmarks", "compute_rel.tsv")
+    output: rel_mat
+    shell: 
+        "Rscript {input.code} --gen_data {input.mh_data} --seed {seed} "
+        "--rel_mat {output}"
+mg_pop_key = os.path.join("resources", "mg_pop_key.csv")
+sample_rel = os.path.join("results", "sample_rel.csv")
+rule analyze_relatedness:
+    input:
+        rel_mat, 
+        mg_microhap_filtered4popgen, 
+        mg_pop_key, 
+        code = os.path.join("workflow", "notebooks", "relatedness.Rmd")
+    output:
+        multiext(notebooks["relatedness"], ".nb.html", ".pdf", ".md"), 
+        sample_rel
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+            output_dir = "{rendered_notebook_dir}")'
+        """
 
 # Make figures
 rule enrichment_consistency_plots:
