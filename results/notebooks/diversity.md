@@ -101,10 +101,11 @@ would be sufficient for this purpose.
 
 To complement marker diversity, sample-level diversity was also
 estimated with Nei’s expected heterozygosity and evenness was calculated
-with the $E_5$ statistic. Two population strata were used: populations
-as defined by the MalariaGEN project (“Population”) and “geographies”
-defined in this project by either removing sites with little data or
-merging them with other, nearby sites (“Geography”).
+with the $E_5$ statistic. Two population strata were used for the entire
+dataset: populations as defined by the MalariaGEN project (“Population”)
+and countries. In addition, diversity was calculated at the site level
+for Cambodia and Vietnam, to facilitate comparison with some of the
+results in relatedness.Rmd.
 
 ## By Population
 
@@ -131,35 +132,71 @@ heterozygosity, and evenness for each population.
 
 Diversity is generally fairly low and evenness is high, although Latin
 America (LAM) has a lower evenness than other populations and Oceania
-(OCE) has a particularly low diversity.
+(OCE) has a particularly low diversity. The high evenness is not a
+surprise given that the number of MLGs is high relative to the number of
+individuals - most individuals constitute a unique MLG, meaning the
+abundances of the MLGs tend to be low, and therefore even.
 
-## By Geography
+## By Country
 
 ``` r
 # Compute summary statistics, filtering to those of interest -----------
-adegenet::setPop(mh_data_gd) <- ~Geography
-# This throws a warning that it is filtering out individuals with 
-# missing population information. This is the desired behavior, hence 
-# why warnings are suppressed for this chunk.
+adegenet::setPop(mh_data_gd) <- ~Country
 poppr::poppr(mh_data_gd) %>%
   select(Pop, N, MLG, Hexp, E.5)
 ```
 
     ##            Pop   N MLG  Hexp   E.5
-    ## 1        Jimma  17  17 0.438 1.000
-    ## 2       Amhara  19  16 0.434 0.893
-    ## 3  Afghanistan  16  14 0.451 0.947
-    ## 4     Colombia  23  13 0.353 0.738
-    ## 5     Krong Pa  18  15 0.428 0.890
-    ## 6   Binh Phuoc  17  17 0.467 1.000
-    ## 7   Ho Chi Min  18  17 0.408 0.970
+    ## 1     Ethiopia  36  33 0.443 0.930
+    ## 2         Peru   6   6 0.495 1.000
+    ## 3  Philippines   2   2 0.478 1.000
+    ## 4  Afghanistan  16  14 0.451 0.947
+    ## 5     Colombia  23  13 0.353 0.738
+    ## 6      Vietnam  53  49 0.441 0.942
+    ## 7     Thailand   9   9 0.477 1.000
     ## 8     Cambodia  19  19 0.441 1.000
-    ## 9    Indonesia  18  18 0.375 1.000
-    ## 10       Total 165 146 0.645 0.862
+    ## 9       Brazil   3   3 0.411 1.000
+    ## 10   Indonesia  18  18 0.375 1.000
+    ## 11       Total 185 166 0.645 0.871
 
-Again, overall genetic diversity is fairly low, likely driven by high
-evenness for many of the markers (i.e., most markers are dominated by
-one genotype). The geographies are fairly comparable, with Colombia and
-Indonesia standing out as slightly less diverse than the other
-locations. Evenness is generally high, with the exception of Colombia,
-which is somewhat lower.
+Indonesia and Colombia stand out as having lower diversity than the
+other countries, and Colombia also stands out as having lower evenness.
+This makes sense in light of the population-level results.
+
+## By Site
+
+``` r
+# Read metadata and make site/country key ------------------------------
+site_country_key <- read_csv(
+    inp$mh_csv, col_types = cols(
+      .default = col_character(), 
+      Lat = col_double(), 
+      Long = col_double(), 
+      Year = col_integer(), 
+      `% callable` = col_double(), 
+      Fws = col_double(), 
+      F_MISS = col_double()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(Site, Country) %>%
+  distinct()
+
+# Compute summary statistics, filtering to those of interest -----------
+adegenet::setPop(mh_data_gd) <- ~Site
+poppr::poppr(mh_data_gd) %>%
+  left_join(site_country_key, by = c("Pop" = "Site")) %>%
+  relocate(Country, .after = Pop) %>%
+  filter(Country %in% c("Cambodia", "Vietnam")) %>%
+  select(Pop, Country, N, MLG, Hexp, E.5)
+```
+
+    ##              Pop  Country  N MLG  Hexp  E.5
+    ## 1       Krong Pa  Vietnam 18  15 0.428 0.89
+    ## 2          Dak O  Vietnam  9   9 0.435 1.00
+    ## 3     Binh Phuoc  Vietnam  8   8 0.496 1.00
+    ## 4     Ho Chi Min  Vietnam 18  17 0.408 0.97
+    ## 5 Oddar Meanchey Cambodia 19  19 0.441 1.00
+
+As at the coarser levels of aggregation, we see that the sites in
+Cambodia and Vietnam tend to have low diversity and high evenness.

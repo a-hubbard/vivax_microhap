@@ -28,7 +28,8 @@ theme_set(theme_bw())
 # meant to be usable with other projects.
 inp <- list(
   mh_hap = "../../results/microhap/MalariaGEN/mg_microhap_haplo.rds", 
-  mh_gd = "../../results/microhap/MalariaGEN/mg_microhap_gd.rds"
+  mh_gd = "../../results/microhap/MalariaGEN/mg_microhap_gd.rds", 
+  mh_csv = "../../results/microhap/MalariaGEN/mg_microhap.csv"
 )
 ```
 
@@ -102,10 +103,10 @@ this purpose.
 
 To complement marker diversity, sample-level diversity was also estimated with
 Nei's expected heterozygosity and evenness was calculated with the $E_5$ 
-statistic. Two population strata were used: populations as defined by the 
-MalariaGEN project ("Population") and "geographies" defined in this project by 
-either removing sites with little data or merging them with other, nearby sites 
-("Geography").
+statistic. Two population strata were used for the entire dataset: populations 
+as defined by the MalariaGEN project ("Population") and countries. In addition, 
+diversity was calculated at the site level for Cambodia and Vietnam, to 
+facilitate comparison with some of the results in relatedness.Rmd.
 
 ## By Population
 
@@ -122,22 +123,51 @@ evenness for each population.
 
 Diversity is generally fairly low and evenness is high, although Latin America 
 (LAM) has a lower evenness than other populations and Oceania (OCE) has a 
-particularly low diversity.
+particularly low diversity. The high evenness is not a surprise given that the
+number of MLGs is high relative to the number of individuals - most individuals
+constitute a unique MLG, meaning the abundances of the MLGs tend to be low, and
+therefore even.
 
-## By Geography
+## By Country
 
-```{r warning = FALSE}
+```{r}
 # Compute summary statistics, filtering to those of interest -----------
-adegenet::setPop(mh_data_gd) <- ~Geography
-# This throws a warning that it is filtering out individuals with 
-# missing population information. This is the desired behavior, hence 
-# why warnings are suppressed for this chunk.
+adegenet::setPop(mh_data_gd) <- ~Country
 poppr::poppr(mh_data_gd) %>%
   select(Pop, N, MLG, Hexp, E.5)
 ```
 
-Again, overall genetic diversity is fairly low, likely driven by high evenness 
-for many of the markers (i.e., most markers are dominated by one genotype). The 
-geographies are fairly comparable, with Colombia and Indonesia standing out as 
-slightly less diverse than the other locations. Evenness is generally high, with 
-the exception of Colombia, which is somewhat lower.
+Indonesia and Colombia stand out as having lower diversity than the other
+countries, and Colombia also stands out as having lower evenness. This makes
+sense in light of the population-level results.
+
+## By Site
+
+```{r}
+# Read metadata and make site/country key ------------------------------
+site_country_key <- read_csv(
+    inp$mh_csv, col_types = cols(
+      .default = col_character(), 
+      Lat = col_double(), 
+      Long = col_double(), 
+      Year = col_integer(), 
+      `% callable` = col_double(), 
+      Fws = col_double(), 
+      F_MISS = col_double()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(Site, Country) %>%
+  distinct()
+
+# Compute summary statistics, filtering to those of interest -----------
+adegenet::setPop(mh_data_gd) <- ~Site
+poppr::poppr(mh_data_gd) %>%
+  left_join(site_country_key, by = c("Pop" = "Site")) %>%
+  relocate(Country, .after = Pop) %>%
+  filter(Country %in% c("Cambodia", "Vietnam")) %>%
+  select(Pop, Country, N, MLG, Hexp, E.5)
+```
+
+As at the coarser levels of aggregation, we see that the sites in Cambodia and
+Vietnam tend to have low diversity and high evenness.

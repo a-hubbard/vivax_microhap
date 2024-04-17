@@ -141,32 +141,6 @@ sample_metadata <- read_csv(
 mh_data <- mh_data %>%
   left_join(sample_metadata, by = "sample_id")
 
-# Define and join geographies used for subsequent analysis -------------
-# Based on manual inspection of sample sizes and locations of different 
-# study sites, some were merged and some were removed to achieve 
-# reasonable sample sizes (>=15) for each geography. The following key 
-# defines how these aggregations will be performed. Sites omitted from 
-# this key will also be omitted from relevant analyses.
-site_geog_key <- tribble(
-  ~site, ~geog, 
-  "Jalalabad", "Afghanistan", 
-  "Laghman", "Afghanistan", 
-  "Oddar Meanchey", "Cambodia", 
-  "Choco", "Colombia", 
-  "Santa Cecilia", "Colombia", 
-  "Tierralta", "Colombia", 
-  "Amhara", "Amhara", 
-  "Gondar", "Amhara", 
-  "Jimma", "Jimma", 
-  "Papua Indonesia", "Indonesia", 
-  "Binh Phuoc", "Binh Phuoc", 
-  "Dak O", "Binh Phuoc", 
-  "Ho Chi Min", "Ho Chi Min", 
-  "Krong Pa", "Krong Pa"
-)
-mh_data <- mh_data %>%
-  left_join(site_geog_key, by = c("Site" = "site"))
-
 # Write to disk --------------------------------------------------------
 # CSV containing tidy data
 write_csv(mh_data, arg$out_csv)

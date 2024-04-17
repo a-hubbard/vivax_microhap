@@ -39,8 +39,7 @@ mh_data <- read_csv(
     ), 
     progress = FALSE
   ) %>%
-  select(target, sample_id, hap_id, Population, geog) %>%
-  rename(Geography = geog)
+  select(target, sample_id, hap_id, Population, Country, Site)
 
 # Convert to genind object and save ------------------------------------
 mh_data_wide <- mh_data %>%
@@ -50,12 +49,12 @@ mh_data_wide <- mh_data %>%
   pivot_wider(values_from = "hap_id", names_from = "target") %>%
   column_to_rownames("sample_id")
 mh_data_wide %>%
-  select(-Population, -Geography) %>%
+  select(-Population, -Country, -Site) %>%
   # Note that while it is not mentioned in the documentation, it 
   # would appear based on empirical testing that this does not alter 
   # the order of the samples
   adegenet::df2genind(
     ploidy = 1, 
-    strata = select(mh_data_wide, Population, Geography)
+    strata = select(mh_data_wide, Population, Country, Site)
   ) %>%
   write_rds(arg$mh_gd)

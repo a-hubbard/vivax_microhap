@@ -583,6 +583,7 @@ rule estimate_diversity:
     input:
         mg_microhap_haplo, 
         mg_microhap_gd, 
+        mg_microhap_tidy, 
         code = os.path.join("workflow", "notebooks", "diversity.Rmd")
     output: 
         multiext(notebooks["diversity"], ".nb.html", ".pdf", ".md")

@@ -154,12 +154,7 @@ following table:
 sample_info_filterbyyear %>%
   group_by(Country, Site) %>%
   summarize(n_samp = n(), .groups = "drop")
-```
 
-For the relatedness analysis, we will be merging some geographies and removing 
-others to create populations that each have an adequate sample size.
-
-```{r}
 # Write sample information to disk -------------------------------------
 sample_info_filterbyyear %>%
   select(sample_id) %>%

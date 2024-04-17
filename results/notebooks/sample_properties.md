@@ -151,10 +151,6 @@ sample_info_filterbyyear %>%
     ## 18 Vietnam     Ho Chi Min          18
     ## 19 Vietnam     Krong Pa            18
 
-For the relatedness analysis, we will be merging some geographies and
-removing others to create populations that each have an adequate sample
-size.
-
 ``` r
 # Write sample information to disk -------------------------------------
 sample_info_filterbyyear %>%
