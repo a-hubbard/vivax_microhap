@@ -87,7 +87,14 @@ sample_info_initialfilter <- sample_info %>%
   filter(Fws >= 0.95) %>%
   # Remove longitudinal samples
   filter(! str_detect(`All samples same individual`, ",")) %>%
-  select(-`QC pass`, -`All samples same individual`, -`Exclusion reason`)
+  # Remove returning travelers
+  filter(! `Is returning traveller`) %>%
+  select(
+    -`QC pass`, 
+    -`All samples same individual`, 
+    -`Exclusion reason`, 
+    -`Is returning traveller`
+  )
 
 # Plot missingness -----------------------------------------------------
 sample_info_initialfilter %>%

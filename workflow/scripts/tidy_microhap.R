@@ -133,7 +133,6 @@ sample_metadata <- read_csv(
     Long = col_double(), 
     Year = col_integer(), 
     `% callable` = col_double(), 
-    `Is returning traveller` = col_logical(), 
     Fws = col_double(), 
     F_MISS = col_double()
   ), 

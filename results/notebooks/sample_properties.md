@@ -52,7 +52,14 @@ sample_info_initialfilter <- sample_info %>%
   filter(Fws >= 0.95) %>%
   # Remove longitudinal samples
   filter(! str_detect(`All samples same individual`, ",")) %>%
-  select(-`QC pass`, -`All samples same individual`, -`Exclusion reason`)
+  # Remove returning travelers
+  filter(! `Is returning traveller`) %>%
+  select(
+    -`QC pass`, 
+    -`All samples same individual`, 
+    -`Exclusion reason`, 
+    -`Is returning traveller`
+  )
 
 # Plot missingness -----------------------------------------------------
 sample_info_initialfilter %>%
@@ -111,7 +118,7 @@ sample_info_filterbyyear <- sample_info_initialfilter %>%
 
 # Sample Sizes
 
-In the final analysis set, this leaves us with a sample size of 187. The
+In the final analysis set, this leaves us with a sample size of 185. The
 sample sizes for each site are given in the following table:
 
 ``` r
@@ -121,29 +128,28 @@ sample_info_filterbyyear %>%
   summarize(n_samp = n(), .groups = "drop")
 ```
 
-    ## # A tibble: 20 × 3
-    ##    Country     Site                                  n_samp
-    ##    <chr>       <chr>                                  <int>
-    ##  1 Afghanistan Jalalabad                                 12
-    ##  2 Afghanistan Laghman                                    4
-    ##  3 Brazil      Manaus                                     3
-    ##  4 Cambodia    Oddar Meanchey                            19
-    ##  5 Colombia    Choco                                      3
-    ##  6 Colombia    Santa Cecilia                              3
-    ##  7 Colombia    Tierralta                                 17
-    ##  8 Ethiopia    Amhara                                    15
-    ##  9 Ethiopia    Gondar                                     4
-    ## 10 Ethiopia    Jimma                                     17
-    ## 11 Indonesia   Papua Indonesia                           18
-    ## 12 Indonesia   Papua Indonesia (returning traveller)      2
-    ## 13 Peru        Iquitos                                    6
-    ## 14 Philippines Rio Tuba                                   2
-    ## 15 Thailand    Mae Sot                                    4
-    ## 16 Thailand    Umphang                                    5
-    ## 17 Vietnam     Binh Phuoc                                 8
-    ## 18 Vietnam     Dak O                                      9
-    ## 19 Vietnam     Ho Chi Min                                18
-    ## 20 Vietnam     Krong Pa                                  18
+    ## # A tibble: 19 × 3
+    ##    Country     Site            n_samp
+    ##    <chr>       <chr>            <int>
+    ##  1 Afghanistan Jalalabad           12
+    ##  2 Afghanistan Laghman              4
+    ##  3 Brazil      Manaus               3
+    ##  4 Cambodia    Oddar Meanchey      19
+    ##  5 Colombia    Choco                3
+    ##  6 Colombia    Santa Cecilia        3
+    ##  7 Colombia    Tierralta           17
+    ##  8 Ethiopia    Amhara              15
+    ##  9 Ethiopia    Gondar               4
+    ## 10 Ethiopia    Jimma               17
+    ## 11 Indonesia   Papua Indonesia     18
+    ## 12 Peru        Iquitos              6
+    ## 13 Philippines Rio Tuba             2
+    ## 14 Thailand    Mae Sot              4
+    ## 15 Thailand    Umphang              5
+    ## 16 Vietnam     Binh Phuoc           8
+    ## 17 Vietnam     Dak O                9
+    ## 18 Vietnam     Ho Chi Min          18
+    ## 19 Vietnam     Krong Pa            18
 
 For the relatedness analysis, we will be merging some geographies and
 removing others to create populations that each have an adequate sample
@@ -168,4 +174,4 @@ sample_info_filterbyyear %>%
     ## Deleting source `../../results/unfiltered_sites.geojson' using driver `GeoJSON'
     ## Writing layer `unfiltered_sites' to data source 
     ##   `../../results/unfiltered_sites.geojson' using driver `GeoJSON'
-    ## Writing 20 features with 3 fields and geometry type Point.
+    ## Writing 19 features with 3 fields and geometry type Point.

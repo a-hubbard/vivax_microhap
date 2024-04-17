@@ -100,7 +100,7 @@ bf_thres <- 0.05 / nrow(selec_res)
 bf_thres
 ```
 
-    ## [1] 0.0001623377
+    ## [1] 0.0001628664
 
 ``` r
 selec_res_signif <- selec_res %>%

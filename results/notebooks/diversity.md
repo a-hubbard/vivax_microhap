@@ -60,7 +60,7 @@ mh_data_gd <- read_rds(inp$mh_gd) %>%
   poppr::informloci()
 ```
 
-    ## cutoff value: 1.06951871657754 % ( 2 samples ).
+    ## cutoff value: 1.08108108108108 % ( 2 samples ).
 
     ## MAF         : 0.01
 
@@ -121,9 +121,9 @@ poppr::poppr(mh_data_gd) %>%
     ## 3  MSEA   2   2 0.478 1.000
     ## 4   WAS  16  14 0.451 0.947
     ## 5  ESEA  72  68 0.444 0.955
-    ## 6   OCE  20  20 0.376 1.000
-    ## 7  WSEA   9   9 0.477 1.000
-    ## 8 Total 187 168 0.645 0.872
+    ## 6  WSEA   9   9 0.477 1.000
+    ## 7   OCE  18  18 0.375 1.000
+    ## 8 Total 185 166 0.645 0.871
 
 This table gives the number of individuals, the number of multi-locus
 genotypes (MLGs) observed in those individuals, Nei’s expected
