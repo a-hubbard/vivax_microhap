@@ -495,7 +495,7 @@ match_fail$Enrichment = factor(match_fail$Enrichment, levels=c("None","Targ. Pre
                             labels = c("","C"),
                             heights = c(1.2, 1)# Labels of the scatter plot
  ) 
- 
+
 w <- 5
 h <- 3.5
 ggsave(

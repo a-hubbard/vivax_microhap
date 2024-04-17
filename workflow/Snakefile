@@ -57,7 +57,8 @@ localrules:
     assess_selection, 
     filter4popgen, 
     analyze_relatedness, 
-    enrichment_consistency_plots, 
+    plot_otreads_by_protocol, 
+    plot_enrichment_consistency, 
     push_results_notebooks, 
     push_figs, 
     clean
@@ -82,7 +83,8 @@ nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
 # material and the main document
 figdir = os.path.join("results", "figs")
 figs = {
-    "enrichment_consistency_plots": "fig2"}
+    "otreads_by_protocol": "fig1", 
+    "enrichment_consistency": "fig2"}
 fig_flag_template = os.path.join(".flags", "push_{fig}")
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
@@ -697,12 +699,30 @@ rule analyze_relatedness:
         """
 
 # Make figures
-rule enrichment_consistency_plots:
+samples_uci = os.path.join("resources", "Samples_GTseek_UCI_Feb2022_Pv.csv")
+may2022_readcount = os.path.join("resources", "readcount.txt")
+may2022_total_readcount = os.path.join(
+    "resources", 
+    "may2022_totalreadcount.txt")
+rule plot_otreads_by_protocol:
+    input:
+        samples_uci, 
+        may2022_readcount, 
+        may2022_total_readcount, 
+        code = os.path.join("workflow", "scripts", "readcount_figs.R")
+    output: 
+        multiext(os.path.join(figdir,figs["otreads_by_protocol"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: "Rscript {input.code} --out_base {params.basename}"
+rule plot_enrichment_consistency:
     input:
         microhap_combined, 
         code = os.path.join("workflow", "scripts", "consistency_check.R")
     output: 
-        multiext(os.path.join(figdir,figs["enrichment_consistency_plots"]), 
+        multiext(os.path.join(figdir,figs["enrichment_consistency"]), 
             ".pdf", 
             ".png"), 
         os.path.join("results", "failed_matches.csv"), 

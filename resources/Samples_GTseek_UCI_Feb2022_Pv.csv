@@ -1,0 +1,33 @@
+﻿Well,SID,Source,Extraction,Enrichment,Species,CT,CT_Pv
+A1,GBPCD_P04_D04,DBS,Chelex,sWGA,vivax,27.818,27.818
+A2,GBPCD_P06_A11,DBS,Chelex,sWGA,vivax,33.445,33.445
+A3,GBPCD_P07_H02,DBS,Chelex,sWGA,vivax,27.89,27.89
+A4,GBPCD_P08_D11,DBS,Chelex,sWGA,vivax,29.424,29.424
+A5,GBPCD_P08_F06,DBS,Chelex,sWGA,vivax,27.652,27.652
+A6,GBPCD_P13_F07,DBS,Chelex,sWGA,vivax,29.799,29.799
+A7,GBPCD_P04_D04,DBS,Kit,sWGA,vivax,29.197,27.818
+A8,GBPCD_P06_A11,DBS,Kit,sWGA,vivax,35.36,33.445
+A9,GBPCD_P07_H02,DBS,Kit,sWGA,vivax,28.987,27.89
+A10,GBPCD_P08_D11,DBS,Kit,sWGA,vivax,31.914,29.424
+A11,GBPCD_P08_F06,DBS,Kit,sWGA,vivax,28.897,27.652
+A12,GBPCD_P13_F07,DBS,Kit,sWGA,vivax,32.074,29.799
+B1,AH-46,Whole blood,Kit,sWGA,vivax,27.282,27.282
+B2,AH-47,Whole blood,Kit,sWGA,vivax,25.46,25.46
+B3,AH-48,Whole blood,Kit,sWGA,vivax,27.916,27.916
+B4,AH-51,Whole blood,Kit,sWGA,vivax,26.827,26.827
+B5,GBPCD_P04_D04,DBS,Chelex,none,vivax,27.818,27.818
+B6,GBPCD_P06_A11,DBS,Chelex,none,vivax,33.445,33.445
+B7,GBPCD_P07_H02,DBS,Chelex,none,vivax,27.89,27.89
+B8,GBPCD_P08_D11,DBS,Chelex,none,vivax,29.424,29.424
+B9,GBPCD_P08_F06,DBS,Chelex,none,vivax,27.652,27.652
+B10,GBPCD_P13_F07,DBS,Chelex,none,vivax,29.799,29.799
+B11,GBPCD_P04_D04,DBS,Kit,none,vivax,29.197,27.818
+B12,GBPCD_P06_A11,DBS,Kit,none,vivax,35.36,33.445
+C1,GBPCD_P07_H02,DBS,Kit,none,vivax,28.987,27.89
+C2,GBPCD_P08_D11,DBS,Kit,none,vivax,31.914,29.424
+C3,GBPCD_P08_F06,DBS,Kit,none,vivax,28.897,27.652
+C4,GBPCD_P13_F07,DBS,Kit,none,vivax,32.074,29.799
+C5,AH-46,Whole blood,Kit,none,vivax,27.282,27.282
+C6,AH-47,Whole blood,Kit,none,vivax,25.46,25.46
+C7,AH-48,Whole blood,Kit,none,vivax,27.916,27.916
+C8,AH-51,Whole blood,Kit,none,vivax,26.827,26.827
