@@ -57,7 +57,7 @@ pairwise_ld_res %>%
 ```
 
 A uniform distribution is expected if the null hypothesis of no linkage is true. 
-This histogram shows a distinct left skew, suggesting there may be linkage in 
+This histogram shows a distinct right skew, suggesting there may be linkage in 
 our dataset.
 
 However, many hypothesis tests were performed to obtain these results, so before 

@@ -2,6 +2,9 @@ Performance of Marker Panel in May 2022 Run
 ================
 Alfred Hubbard
 
+For reference, this table gives some of the metadata associated with the
+samples used in this sequencing run:
+
 ``` r
 read_count_heatmap <- function(reads, 
                                fill_scale = scale_fill_fermenter(
@@ -57,6 +60,33 @@ mh_combined <- read_csv(
   select(-`...1`) %>%
   filter(SeqRun == "may2022", Primer_set == "OLD", Dilution == "Neat")
 
+# Read, join, and print metadata ---------------------------------------
+gbpcd_meta <- read_csv(
+  inp$gbpcd_meta, 
+  col_types = cols(.default = col_character(), Age = col_integer()), 
+  progress = FALSE
+)
+mh_combined %>%
+  left_join(gbpcd_meta, by = c("SID" = "UCI_SID")) %>%
+  select(SID, DBS_ID, Age, Sex) %>%
+  distinct()
+```
+
+    ## # A tibble: 10 × 4
+    ##    SID           DBS_ID              Age Sex  
+    ##    <chr>         <chr>             <int> <chr>
+    ##  1 GBPCD_P04_D04 ABOB-202105-45067    10 F    
+    ##  2 GBPCD_P06_A11 VI89-202106-901       4 M    
+    ##  3 GBPCD_P07_H02 UKUN-202009-3918     27 M    
+    ##  4 GBPCD_P08_D11 ABOB-202010-07273    27 F    
+    ##  5 GBPCD_P08_F06 UKUN-202010-5083     19 M    
+    ##  6 GBPCD_P13_F07 ABOB-202102-33880    12 F    
+    ##  7 AH-46         <NA>                 NA <NA> 
+    ##  8 AH-47         <NA>                 NA <NA> 
+    ##  9 AH-48         <NA>                 NA <NA> 
+    ## 10 AH-51         <NA>                 NA <NA>
+
+``` r
 # Calculate total reads ------------------------------------------------
 total_reads <- mh_combined %>%
   rename(target = Primer, sample_id = SID) %>%

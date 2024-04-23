@@ -36,8 +36,8 @@ pairwise_ld_res %>%
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/ld_files/figure-gfm/unnamed-chunk-1-1.png" width="100%" />
 
 A uniform distribution is expected if the null hypothesis of no linkage
-is true. This histogram shows a distinct left skew, suggesting there may
-be linkage in our dataset.
+is true. This histogram shows a distinct right skew, suggesting there
+may be linkage in our dataset.
 
 However, many hypothesis tests were performed to obtain these results,
 so before concluding that any pairs are in significant LD, a correction

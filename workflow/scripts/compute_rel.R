@@ -33,5 +33,5 @@ gen_data <- dcifer::readDat(arg$gen_data, "sample_id", "target", "hap_id")
 # Compute relatedness and save -----------------------------------------
 moi <- rep_len(1, length(gen_data))
 a_freq <- dcifer::calcAfreq(gen_data, moi)
-dcifer::ibdDat(gen_data, moi, a_freq) %>%
+dcifer::ibdDat(gen_data, moi, a_freq, confint = TRUE) %>%
   write_rds(arg$rel_mat)

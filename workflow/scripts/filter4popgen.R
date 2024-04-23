@@ -47,5 +47,5 @@ trgs2filter <- read_csv(
 
 # Filter data and write to disk ----------------------------------------
 mh_data %>%
-  filter(! target %in% trgs2filter) %>%
+  filter(! (target %in% trgs2filter)) %>%
   write_csv(arg$mh_out)

@@ -70,8 +70,8 @@ selec_res <- selec_res %>%
   # Remove tests with NaN for results, which means there were no 
   # segregating sites. These are excluded from the Bonferroni threshold 
   # calculation, with the logic that if data conditions prevent the 
-  # test statistic being from being calculated, it doesn't really 
-  # "count" as performing a hypothesis test.
+  # test statistic from being calculated, it doesn't really "count" as 
+  # performing a hypothesis test.
   filter(! is.nan(taj_d))
 
 # Visualize distribution of p-values -----------------------------------
@@ -85,7 +85,7 @@ selec_res %>%
 
 If the null hypothesis is true, a uniform distribution of *p*-values is
 expected. This distribution is more normal than uniform, with a slight
-left skew. This suggests that some of the tests may be significant, but
+right skew. This suggests that some of the tests may be significant, but
 likely not many.
 
 To assess significance of these results, the Bonferroni correction for
@@ -118,10 +118,10 @@ selec_res_signif %>%
 
 The table above shows the target/population combinations that yielded a
 significant result at this corrected threshold. These results suggest
-that pvcrt_o.10k.indel is under selective pressure in the WAS and ESEA
-populations, and PvP01_10_v1_1072001_1072200 is under selective pressure
-in the WAS population. These loci will be removed for downstream
-population genetic analyses that assume neutral markers.
+that pvcrt_o.10k.indel may be under selective pressure in the WAS and
+ESEA populations, and PvP01_10_v1_1072001_1072200 may be under selective
+pressure in the WAS population. These loci will be removed for
+downstream population genetic analyses that assume neutral markers.
 
 ``` r
 # Save list of targets to filter ---------------------------------------

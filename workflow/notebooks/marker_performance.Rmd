@@ -24,10 +24,14 @@ theme_set(theme_bw())
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
 inp <- list(
-  mh_combined = "../../resources/Microhap_PV_combined-data_2023-06-21"
+  mh_combined = "../../resources/Microhap_PV_combined-data_2023-06-21", 
+  gbpcd_meta = "../../resources/GBPCD_meta.csv"
 )
 out <- list(filtered_trgs = "../../results/trgs2filter/good_amp.csv")
 ```
+
+For reference, this table gives some of the metadata associated with the samples
+used in this sequencing run:
 
 ```{r message = FALSE, fig.width = 20, fig.height = 17}
 read_count_heatmap <- function(reads, 
@@ -83,6 +87,17 @@ mh_combined <- read_csv(
   ) %>%
   select(-`...1`) %>%
   filter(SeqRun == "may2022", Primer_set == "OLD", Dilution == "Neat")
+
+# Read, join, and print metadata ---------------------------------------
+gbpcd_meta <- read_csv(
+  inp$gbpcd_meta, 
+  col_types = cols(.default = col_character(), Age = col_integer()), 
+  progress = FALSE
+)
+mh_combined %>%
+  left_join(gbpcd_meta, by = c("SID" = "UCI_SID")) %>%
+  select(SID, DBS_ID, Age, Sex) %>%
+  distinct()
 
 # Calculate total reads ------------------------------------------------
 total_reads <- mh_combined %>%
