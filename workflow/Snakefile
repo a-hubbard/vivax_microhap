@@ -37,6 +37,7 @@ localrules:
     captured_seq_bounds, 
     extract_captured_seq, 
     investigate_mapping, 
+    collate_may2022_readcounts_metadata, 
     assess_marker_performance, 
     filter_bed, 
     dwnld_metadata, 
@@ -310,6 +311,28 @@ rule investigate_mapping:
         """
 
 # Assess marker performance based on May 2022 sequencing run
+may2022_readcount = os.path.join("resources", "readcount.txt")
+may2022_total_readcount = os.path.join(
+    "resources", 
+    "may2022_totalreadcount.txt")
+samples_uci = os.path.join("resources", "Samples_GTseek_UCI_Feb2022_Pv.csv")
+may2022_readcounts_metadata = os.path.join(
+    "results", 
+    "may2022_readcounts_metadata.csv")
+rule collate_may2022_readcounts_metadata:
+    input:
+        read_counts = may2022_readcount, 
+        total_read_counts = may2022_total_readcount, 
+        metadata = samples_uci, 
+        code = os.path.join(
+            "workflow", 
+            "scripts", 
+            "collate_readcounts_metadata.R")
+    output: may2022_readcounts_metadata
+    shell: 
+        "Rscript {input.code} --read_counts {input.read_counts} "
+        "--total_read_counts {input.total_read_counts} --metadata "
+        "{input.metadata} --out {output}"
 microhap_combined = os.path.join(
     "resources", 
     "Microhap_PV_combined-data_2023-06-21")
@@ -718,24 +741,22 @@ rule plot_panel_marker_metrics:
     shell: 
         "Rscript {input.code} --window_stats {input.window_stats} --targets "
         "{input.targets} --out_base {params.basename}"
-samples_uci = os.path.join("resources", "Samples_GTseek_UCI_Feb2022_Pv.csv")
-may2022_readcount = os.path.join("resources", "readcount.txt")
-may2022_total_readcount = os.path.join(
-    "resources", 
-    "may2022_totalreadcount.txt")
 rule plot_otreads_by_protocol:
     input:
-        samples_uci, 
-        may2022_readcount, 
-        may2022_total_readcount, 
-        code = os.path.join("workflow", "scripts", "readcount_figs.R")
+        readcounts_metadata = may2022_readcounts_metadata, 
+        code = os.path.join(
+            "workflow", 
+            "scripts", 
+            "otreads_by_protocol_barplots.R")
     output: 
         multiext(os.path.join(figdir,figs["otreads_by_protocol"]), 
             ".pdf", 
             ".png")
     params:
         basename = lambda wildcards, output: output[0][:-4]
-    shell: "Rscript {input.code} --out_base {params.basename}"
+    shell: 
+        "Rscript {input.code} --readcounts_metadata "
+        "{input.readcounts_metadata} --out_base {params.basename}"
 
 # Copy relevant outputs to shared Google Drive
 cloud_dir = "UNCC_GDrive:Alfred-Liz-PV-microhaplotype-files"

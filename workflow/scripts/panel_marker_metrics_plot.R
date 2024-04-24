@@ -84,11 +84,10 @@ target_stats <- targets %>%
 # Create and save barplots
 fig <- (
     metric_barplot(target_stats, "mean_ND") | 
-    metric_barplot(target_stats, "mean_FST", label_y_axis = FALSE) | 
-    metric_barplot(target_stats, "mean_TD", label_y_axis = FALSE)
+    metric_barplot(target_stats, "mean_FST", label_y_axis = FALSE)
   ) +
   plot_annotation(tag_levels = "A")
-w <- 10
+w <- 8
 h <- 9
 ggsave(
   str_c(arg$out_base, ".pdf"), 

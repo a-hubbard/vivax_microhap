@@ -142,7 +142,7 @@ without these problematic markers is created for use in subsequent analyses.
 
 ```{r}
 # Filter targets to analysis set and save ------------------------------
-total_reads %>%
+targets <- total_reads %>%
   select(target) %>%
   distinct() %>%
   filter(
@@ -151,6 +151,19 @@ total_reads %>%
       "PvP01_14_v1_1887501_1887700", 
       "PvP01_14_v1_2759601_2759800"
     )
-  ) %>%
+  )
+targets %>%
   write_csv(out$filtered_trgs)
+selected_windows <- targets %>%
+  filter(str_detect(target, "PvP01"))
+other_targets <- targets %>%
+  filter(! str_detect(target, "PvP01"))
+```
+
+The final set of markers consists of `r nrow(selected_windows)` selected genome
+windows, plus `r nrow(other_targets)` other targets of interest. These
+additional targets are:
+
+```{r}
+other_targets
 ```

@@ -135,7 +135,7 @@ subsequent analyses.
 
 ``` r
 # Filter targets to analysis set and save ------------------------------
-total_reads %>%
+targets <- total_reads %>%
   select(target) %>%
   distinct() %>%
   filter(
@@ -144,6 +144,30 @@ total_reads %>%
       "PvP01_14_v1_1887501_1887700", 
       "PvP01_14_v1_2759601_2759800"
     )
-  ) %>%
+  )
+targets %>%
   write_csv(out$filtered_trgs)
+selected_windows <- targets %>%
+  filter(str_detect(target, "PvP01"))
+other_targets <- targets %>%
+  filter(! str_detect(target, "PvP01"))
 ```
+
+The final set of markers consists of 76 selected genome windows, plus 8
+other targets of interest. These additional targets are:
+
+``` r
+other_targets
+```
+
+    ## # A tibble: 8 × 1
+    ##   target                
+    ##   <chr>                 
+    ## 1 pvcrt_o.10k.indel     
+    ## 2 pvdbp.503             
+    ## 3 pvdhfr.57FLI.58SR.61TM
+    ## 4 pvdhps.382AG.383AG    
+    ## 5 pvdhps.553AG          
+    ## 6 pvk12.124MI.151QK     
+    ## 7 pvk12.596KR           
+    ## 8 pvmdr1.1076FL
