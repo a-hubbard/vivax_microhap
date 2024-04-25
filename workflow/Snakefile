@@ -61,6 +61,7 @@ localrules:
     plot_panel_marker_metrics, 
     plot_otreads_by_protocol, 
     plot_marker_reads_by_protocol, 
+    plot_otreads_vs_density, 
     push_results_notebooks, 
     push_figs, 
     clean
@@ -87,7 +88,8 @@ figdir = os.path.join("results", "figs")
 figs = {
     "panel_marker_metrics": "fig1", 
     "otreads_by_protocol": "fig2", 
-    "marker_reads_by_protocol": "fig3"}
+    "marker_reads_by_protocol": "fig3", 
+    "otreads_vs_density": "fig4"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
@@ -777,6 +779,24 @@ rule plot_marker_reads_by_protocol:
         "Rscript {input.code} --readcounts_metadata "
         "{input.readcounts_metadata} --selected_trgs {input.selected_trgs} "
         "--out_base {params.basename}"
+rule plot_otreads_vs_density:
+    input:
+        readcounts_metadata = may2022_readcounts_metadata, 
+        total_readcounts = may2022_total_readcount, 
+        code = os.path.join(
+            "workflow", 
+            "scripts", 
+            "otreads_vs_density_scatterplots.R")
+    output: 
+        multiext(os.path.join(figdir,figs["otreads_vs_density"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} --readcounts_metadata "
+        "{input.readcounts_metadata} --total_read_counts "
+        "{input.total_readcounts} --out_base {params.basename}"
 
 # Copy relevant outputs to shared Google Drive
 cloud_dir = "UNCC_GDrive:Alfred-Liz-PV-microhaplotype-files"
