@@ -14,10 +14,6 @@ opts <- list(
     help = "TSV file containing read counts separated by target"
   ), 
   make_option(
-    "--total_read_counts", 
-    help = "TSV file containing total read counts from each well"
-  ), 
-  make_option(
     "--metadata", 
     help = "CSV file containing metadata for the May 2022 experiments"
   ), 
@@ -33,13 +29,6 @@ read_counts <- read_tsv(
   col_types = cols(.default = col_character(), n_read = col_integer()), 
   progress = FALSE
 )
-# Total read counts from each well
-total_read_counts <- read_tsv(
-  arg$total_read_counts, 
-  col_names = c("protocol_well", "n_read_total"), 
-  col_types = cols(.default = col_character(), n_read_total = col_integer()), 
-  progress = FALSE
-)
 metadata <- read_csv(
   arg$metadata, 
   col_types = cols(
@@ -50,19 +39,10 @@ metadata <- read_csv(
   progress = FALSE
 )
 
-# Compute percent on-target (OT) reads ---------------------------------
-ot_reads <- read_counts %>%
-  group_by(protocol_well) %>%
-  summarize(n_read_ot = sum(n_read), .groups = "drop")
-pct_ot_reads <- total_read_counts %>%
-  left_join(ot_reads, by = "protocol_well") %>%
-  mutate(pct_read_ot = (n_read_ot / n_read_total) * 100)
-
 # Join metadata and write ----------------------------------------------
-pct_ot_reads <- pct_ot_reads %>%
+read_counts <- read_counts %>%
   mutate(is_preamp = str_detect(protocol_well, "preAmped")) %>%
   mutate(well = str_sub(protocol_well, start = -3L)) %>%
-  select(-protocol_well) %>%
   separate_wider_position(well, c(well_letter = 1, well_num = 2)) %>%
   mutate(well_num = as.integer(well_num)) %>%
   mutate(well_num = as.character(well_num)) %>%

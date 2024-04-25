@@ -14,6 +14,10 @@ opts <- list(
     "--readcounts_metadata", 
     help = "CSV file containing read counts and metadata for May 2022 runs"
   ), 
+  make_option(
+    "--total_read_counts", 
+    help = "TSV file containing total read counts from each well"
+  ), 
   make_option("--out_base", help = "Basename for output figure")
 )
 arg <- parse_args(OptionParser(option_list = opts))
@@ -36,13 +40,12 @@ protocol_barplot <- function(pct_ot_reads, dna_source) {
 }
 
 # Read in data ---------------------------------------------------------
-pct_ot_reads <- read_csv(
+# Read counts for each target, with metadata
+read_counts <- read_csv(
     arg$readcounts_metadata, 
     col_types = cols(
       .default = col_character(), 
-      n_read_total = col_integer(), 
-      n_read_ot = col_integer(), 
-      pct_read_ot = col_double(), 
+      n_read = col_integer(), 
       CT = col_double(), 
       CT_Pv = col_double()
     ), 
@@ -50,6 +53,21 @@ pct_ot_reads <- read_csv(
   ) %>%
   # Filter out runs with both sWGA and target pre-amplification
   filter(Treatment != "sWGA & Targ. Pre-amp.")
+# Total read counts from each well
+total_read_counts <- read_tsv(
+  arg$total_read_counts, 
+  col_names = c("protocol_well", "n_read_total"), 
+  col_types = cols(.default = col_character(), n_read_total = col_integer()), 
+  progress = FALSE
+)
+
+# Compute percent on-target (OT) reads ---------------------------------
+ot_reads <- read_counts %>%
+  group_by(protocol_well, SID, Source, Treatment, Extraction) %>%
+  summarize(n_read_ot = sum(n_read), .groups = "drop")
+pct_ot_reads <- ot_reads %>%
+  left_join(total_read_counts, by = "protocol_well") %>%
+  mutate(pct_read_ot = (n_read_ot / n_read_total) * 100)
 
 # Make plots and save --------------------------------------------------
 dbs_plot <- protocol_barplot(pct_ot_reads, "DBS")
