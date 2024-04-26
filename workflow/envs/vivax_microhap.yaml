@@ -39,5 +39,7 @@ dependencies:
   - r-pegas
   - r-poppr
   - r-adegenet
+  - r-ggraph
+  - r-tidygraph
   # Recommended for many R packages
   - r-codetools

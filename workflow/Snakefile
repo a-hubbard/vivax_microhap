@@ -64,6 +64,7 @@ localrules:
     plot_otreads_vs_density, 
     plot_reads_by_marker, 
     plot_mean_het_by_pop, 
+    map_rel_net, 
     push_results_notebooks, 
     push_figs, 
     clean
@@ -93,7 +94,8 @@ figs = {
     "marker_reads_by_protocol": "fig3", 
     "otreads_vs_density": "fig4", 
     "reads_by_marker": "suppfig1", 
-    "mean_het_by_pop": "suppfig2"}
+    "mean_het_by_pop": "suppfig2", 
+    "site_rel_net": "fig6"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
@@ -713,7 +715,9 @@ rule compute_rel:
         "Rscript {input.code} --gen_data {input.mh_data} --seed {seed} "
         "--rel_mat {output}"
 mg_pop_key = os.path.join("resources", "mg_pop_key.csv")
-sample_rel = os.path.join("results", "sample_rel.csv")
+rel_dir = os.path.join("results", "relatedness")
+sample_rel = os.path.join(rel_dir, "sample_rel.csv")
+site_rel = os.path.join(rel_dir, "site_rel.csv")
 rule analyze_relatedness:
     input:
         rel_mat, 
@@ -722,7 +726,8 @@ rule analyze_relatedness:
         code = os.path.join("workflow", "notebooks", "relatedness.Rmd")
     output:
         multiext(notebooks["relatedness"], ".nb.html", ".pdf", ".md"), 
-        sample_rel
+        sample_rel, 
+        site_rel
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -828,6 +833,18 @@ rule plot_mean_het_by_pop:
     shell: 
         "Rscript {input.code} --mh_data_gd {input.mh_data_gd} --out_base "
         "{params.basename}"
+rule map_rel_net:
+    input:
+        rel = site_rel, 
+        site_coords = unfiltered_sites, 
+        code = os.path.join("workflow", "scripts", "network_map.R")
+    output: 
+        multiext(os.path.join(figdir,figs["site_rel_net"]), ".pdf", ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} --rel {input.rel} --site_coords "
+        "{input.site_coords} --out_base {params.basename}"
 
 # Copy relevant outputs to shared Google Drive
 cloud_dir = "UNCC_GDrive:Alfred-Liz-PV-microhaplotype-files"

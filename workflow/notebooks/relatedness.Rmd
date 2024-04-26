@@ -30,7 +30,8 @@ inp <- list(
   mg_pop_key = "../../resources/mg_pop_key.csv"
 )
 out <- list(
-  sample_rel = "../../results/sample_rel.csv"
+  sample_rel = "../../results/relatedness/sample_rel.csv", 
+  site_rel = "../../results/relatedness/site_rel.csv"
 )
 ```
 
@@ -324,6 +325,8 @@ site_rel <- rel_res %>%
     frac_signif = sum(is_signif) / n(), 
     .groups = "drop"
   )
+# Save to CSV to enable creation of network figure
+write_csv(site_rel, out$site_rel)
 
 # Add reverse combinations and duplicate values ------------------------
 rev_combs <- filter(site_rel, site_a != site_b) %>%
