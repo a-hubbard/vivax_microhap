@@ -63,6 +63,7 @@ localrules:
     plot_marker_reads_by_protocol, 
     plot_otreads_vs_density, 
     plot_reads_by_marker, 
+    plot_mean_het_by_pop, 
     push_results_notebooks, 
     push_figs, 
     clean
@@ -91,7 +92,8 @@ figs = {
     "otreads_by_protocol": "fig2", 
     "marker_reads_by_protocol": "fig3", 
     "otreads_vs_density": "fig4", 
-    "reads_by_marker": "suppfig1"}
+    "reads_by_marker": "suppfig1", 
+    "mean_het_by_pop": "suppfig2"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
@@ -578,7 +580,7 @@ rule tidy_microhap:
             {mg_microhap_aligned_fasta_dir}
         """
 
-# Marker and sample diversity
+# Linkage disequilibrium
 # Convert tibble of msa alignments to pegas haplotypes and add 
 # haplotype IDs to the main CSV file
 mg_microhap_haplo = os.path.join(mg_microhap_dir, "mg_microhap_haplo.rds")
@@ -597,30 +599,15 @@ rule alignment2hap:
         "Rscript {input.code} --alignments {input.mh_aligned} --mh_csv "
         "{input.mh_csv} --haplotypes {output.mh_haplo} --mh_csv_w_hap_ids "
         "{output.mh_csv_w_hap_ids}"
-mg_microhap_gd = os.path.join(mg_microhap_dir, "mg_microhap_gd.rds")
 rule csv2genind:
     input:
-        mh_csv = mg_microhap_w_hap_ids, 
+        mh_csv = os.path.join(mg_microhap_dir, "{mh_file}.csv"), 
         code = os.path.join("workflow", "scripts", "csv2genind.R")
-    output: mg_microhap_gd
+    output: os.path.join(mg_microhap_dir, "{mh_file}_gd.rds")
     shell: "Rscript {input.code} --mh_csv {input.mh_csv} --mh_gd {output}"
-rule estimate_diversity:
-    input:
-        mg_microhap_haplo, 
-        mg_microhap_gd, 
-        mg_microhap_tidy, 
-        code = os.path.join("workflow", "notebooks", "diversity.Rmd")
-    output: 
-        multiext(notebooks["diversity"], ".nb.html", ".pdf", ".md")
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
-
-# Linkage disequilibrium
 ld_res = os.path.join("results", "ld_res.rds")
 seed = 59404051
+mg_microhap_gd = os.path.join(mg_microhap_dir, "mg_microhap_w_hap_ids_gd.rds")
 rule check_ld:
     input:
         mh_data = mg_microhap_gd, 
@@ -691,6 +678,24 @@ rule filter4popgen:
     shell:
         "Rscript {input.code} --mh_in {input.mh_in} --trgs2filter "
         "{input.trgs2filter} --mh_out {output}"
+
+# Marker and sample diversity
+mg_microhap_filtered4popgen_gd = os.path.join(
+    mg_microhap_dir, 
+    "mg_microhap_filtered4popgen_gd.rds")
+rule estimate_diversity:
+    input:
+        mg_microhap_haplo, 
+        mg_microhap_filtered4popgen_gd, 
+        mg_microhap_tidy, 
+        code = os.path.join("workflow", "notebooks", "diversity.Rmd")
+    output: 
+        multiext(notebooks["diversity"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
 
 # IBD-based relatedness
 rel_mat = os.path.join("results", "rel_mat.rds")
@@ -812,6 +817,17 @@ rule plot_reads_by_marker:
         "Rscript {input.code} --readcounts_metadata "
         "{input.readcounts_metadata} --selected_trgs {input.selected_trgs} "
         "--out_base {params.basename}"
+rule plot_mean_het_by_pop:
+    input:
+        mh_data_gd = mg_microhap_filtered4popgen_gd, 
+        code = os.path.join("workflow", "scripts", "mean_het_boxplots.R")
+    output: 
+        multiext(os.path.join(figdir,figs["mean_het_by_pop"]), ".pdf", ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} --mh_data_gd {input.mh_data_gd} --out_base "
+        "{params.basename}"
 
 # Copy relevant outputs to shared Google Drive
 cloud_dir = "UNCC_GDrive:Alfred-Liz-PV-microhaplotype-files"

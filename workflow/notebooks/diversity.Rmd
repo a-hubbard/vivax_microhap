@@ -28,7 +28,8 @@ theme_set(theme_bw())
 # meant to be usable with other projects.
 inp <- list(
   mh_hap = "../../results/microhap/MalariaGEN/mg_microhap_haplo.rds", 
-  mh_gd = "../../results/microhap/MalariaGEN/mg_microhap_gd.rds", 
+  mh_gd = 
+    "../../results/microhap/MalariaGEN/mg_microhap_filtered4popgen_gd.rds", 
   mh_csv = "../../results/microhap/MalariaGEN/mg_microhap.csv"
 )
 ```

@@ -117,14 +117,14 @@ poppr::poppr(mh_data_gd) %>%
 ```
 
     ##     Pop   N MLG  Hexp   E.5
-    ## 1    AF  36  33 0.443 0.930
-    ## 2   LAM  32  22 0.436 0.729
+    ## 1    AF  36  33 0.452 0.930
+    ## 2   LAM  32  22 0.445 0.729
     ## 3  MSEA   2   2 0.478 1.000
-    ## 4   WAS  16  14 0.451 0.947
-    ## 5  ESEA  72  68 0.444 0.955
-    ## 6  WSEA   9   9 0.477 1.000
+    ## 4   WAS  16  14 0.452 0.947
+    ## 5  ESEA  72  68 0.446 0.955
+    ## 6  WSEA   9   9 0.488 1.000
     ## 7   OCE  18  18 0.375 1.000
-    ## 8 Total 185 166 0.645 0.871
+    ## 8 Total 185 166 0.648 0.871
 
 This table gives the number of individuals, the number of multi-locus
 genotypes (MLGs) observed in those individuals, Nei’s expected
@@ -147,17 +147,17 @@ poppr::poppr(mh_data_gd) %>%
 ```
 
     ##            Pop   N MLG  Hexp   E.5
-    ## 1     Ethiopia  36  33 0.443 0.930
-    ## 2         Peru   6   6 0.495 1.000
+    ## 1     Ethiopia  36  33 0.452 0.930
+    ## 2         Peru   6   6 0.504 1.000
     ## 3  Philippines   2   2 0.478 1.000
-    ## 4  Afghanistan  16  14 0.451 0.947
-    ## 5     Colombia  23  13 0.353 0.738
-    ## 6      Vietnam  53  49 0.441 0.942
-    ## 7     Thailand   9   9 0.477 1.000
-    ## 8     Cambodia  19  19 0.441 1.000
-    ## 9       Brazil   3   3 0.411 1.000
+    ## 4  Afghanistan  16  14 0.452 0.947
+    ## 5     Colombia  23  13 0.361 0.738
+    ## 6      Vietnam  53  49 0.442 0.942
+    ## 7     Thailand   9   9 0.488 1.000
+    ## 8     Cambodia  19  19 0.447 1.000
+    ## 9       Brazil   3   3 0.413 1.000
     ## 10   Indonesia  18  18 0.375 1.000
-    ## 11       Total 185 166 0.645 0.871
+    ## 11       Total 185 166 0.648 0.871
 
 Indonesia and Colombia stand out as having lower diversity than the
 other countries, and Colombia also stands out as having lower evenness.
@@ -192,11 +192,11 @@ poppr::poppr(mh_data_gd) %>%
 ```
 
     ##              Pop  Country  N MLG  Hexp  E.5
-    ## 1       Krong Pa  Vietnam 18  15 0.428 0.89
-    ## 2          Dak O  Vietnam  9   9 0.435 1.00
-    ## 3     Binh Phuoc  Vietnam  8   8 0.496 1.00
+    ## 1       Krong Pa  Vietnam 18  15 0.431 0.89
+    ## 2          Dak O  Vietnam  9   9 0.430 1.00
+    ## 3     Binh Phuoc  Vietnam  8   8 0.499 1.00
     ## 4     Ho Chi Min  Vietnam 18  17 0.408 0.97
-    ## 5 Oddar Meanchey Cambodia 19  19 0.441 1.00
+    ## 5 Oddar Meanchey Cambodia 19  19 0.447 1.00
 
 As at the coarser levels of aggregation, we see that the sites in
 Cambodia and Vietnam tend to have low diversity and high evenness.

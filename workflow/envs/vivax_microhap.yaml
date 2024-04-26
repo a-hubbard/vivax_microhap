@@ -33,8 +33,6 @@ dependencies:
   - r-rnaturalearth
   - r-rnaturalearthdata
   - r-rstatix
-  - r-ggpubr
-  - r-ggpmisc
   - r-seqinr
   - bioconductor-biostrings
   - bioconductor-msa

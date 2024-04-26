@@ -30,15 +30,18 @@ arg <- parse_args(OptionParser(option_list = opts))
 protocol_boxplot <- function(read_counts, dna_source) {
   if (dna_source == "DBS") {
     mapping <- aes(x = Treatment, y = mean_read_count, color = Extraction)
+    color_scale <- scale_color_discrete(name = "Extraction\nMethod")
   } else if (dna_source == "Whole blood") {
     mapping <- aes(x = Treatment, y = mean_read_count)
+    color_scale <- NULL
   }
   read_counts %>%
     filter(Source == dna_source) %>%
     ggplot(mapping = mapping) +
     geom_boxplot() +
     scale_y_continuous(trans = "log10") +
-    labs(x = "Treatment", y = "Mean Target Read Count") +
+    color_scale +
+    labs(x = "Enrichment Method", y = "Mean Target Read Count") +
     theme_bw()
 }
 
