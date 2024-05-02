@@ -113,7 +113,8 @@ relatedness_heatmap <- function(rel_tib, label_a, label_b, metric) {
   scale_label_key <- list(
     "mean_r" = "Mean r", 
     "frac_signif" = "Frac. Signif.", 
-    "mean_signif_r" = "Mean r if Signif."
+    "mean_signif_r" = "Mean r if Signif.", 
+    "frac_high_r" = "Frac. High r"
   )
   ggplot(
       data = rel_tib, 
@@ -314,6 +315,7 @@ site_rel <- rel_res %>%
   summarize(
     mean_r = mean(estimate), 
     frac_signif = sum(is_signif) / n(), 
+    frac_high_r = sum(estimate > 0.25) / n(), 
     .groups = "drop"
   )
 # Save to CSV to enable creation of network figure
@@ -383,3 +385,10 @@ that Ho Chi Min is a large city with lots of travel in and out, but this
 is not true for Dak O. Further study of the characteristics of these
 settlements and the patterns of human movement in the area is advisable
 to help explain these patterns.
+
+``` r
+site_rel %>%
+  relatedness_heatmap("site_a", "site_b", "frac_high_r")
+```
+
+![](/users/ahubba16/projects/vivax_microhap/results/notebooks/relatedness_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->

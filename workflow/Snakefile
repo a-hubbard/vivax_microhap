@@ -64,6 +64,7 @@ localrules:
     plot_otreads_vs_density, 
     plot_reads_by_marker, 
     plot_mean_het_by_pop, 
+    plot_sample_rel, 
     map_rel_net, 
     push_results_notebooks, 
     push_figs, 
@@ -95,6 +96,7 @@ figs = {
     "otreads_vs_density": "fig4", 
     "reads_by_marker": "suppfig1", 
     "mean_het_by_pop": "suppfig2", 
+    "rel_hist": "suppfig3", 
     "site_rel_net": "fig6"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 microhap_dir = os.path.join("results", "microhap")
@@ -832,6 +834,16 @@ rule plot_mean_het_by_pop:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
         "Rscript {input.code} --mh_data_gd {input.mh_data_gd} --out_base "
+        "{params.basename}"
+rule plot_sample_rel:
+    input:
+        rel_csv = sample_rel, 
+        code = os.path.join("workflow", "scripts", "rel_hist.R")
+    output: multiext(os.path.join(figdir,figs["rel_hist"]), ".pdf", ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} --rel_csv {input.rel_csv} --out_base "
         "{params.basename}"
 rule map_rel_net:
     input:

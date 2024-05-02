@@ -30,7 +30,8 @@ site_rel <- read_csv(
   col_types = cols(
     .default = col_character(), 
     mean_r = col_double(), 
-    frac_signif = col_double()
+    frac_signif = col_double(), 
+    frac_high_r = col_double()
   ), 
   progress = FALSE
 )
@@ -110,7 +111,7 @@ fig <- ggraph::ggraph(network) +
       y = from_lat, 
       xend = to_lon, 
       yend = to_lat, 
-      color = frac_signif
+      color = frac_high_r
     ), 
     width = 1.5
   ) +
@@ -131,7 +132,7 @@ fig <- ggraph::ggraph(network) +
     ylim = c(bnds[["ymin"]], bnds[["ymax"]])
   ) +
   ggraph::scale_edge_color_distiller(
-    name = "Frac. Signif.", 
+    name = "Frac. High r", 
     palette = "YlOrBr", 
     direction = 1
   ) +
