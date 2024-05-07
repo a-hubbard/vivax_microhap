@@ -56,8 +56,8 @@ reads_by_marker <- read_csv(
     ), 
     progress = FALSE
   ) %>%
-  # Filter out runs with both sWGA and target pre-amplification
-  filter(Treatment != "sWGA & Targ. Pre-amp.")
+  # Filter out runs with both SWGA and target pre-amplification
+  filter(Treatment != "SWGA & Targ. Pre-amp.")
 selected_trgs <- read_csv(
   arg$selected_trgs, 
   col_types = cols(.default = col_character()), 

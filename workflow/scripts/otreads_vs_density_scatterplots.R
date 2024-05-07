@@ -33,8 +33,8 @@ read_counts <- read_csv(
     ), 
     progress = FALSE
   ) %>%
-  # Filter out runs with both sWGA and target pre-amplification
-  filter(Treatment != "sWGA & Targ. Pre-amp.") %>%
+  # Filter out runs with both SWGA and target pre-amplification
+  filter(Treatment != "SWGA & Targ. Pre-amp.") %>%
   # Merge source and extraction columns
   mutate(
     source_extraction = if_else(

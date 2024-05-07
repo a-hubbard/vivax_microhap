@@ -51,7 +51,7 @@ read_counts <- read_counts %>%
   mutate(
     Treatment = if_else(
       Enrichment == "sWGA", 
-      if_else(is_preamp, "sWGA & Targ. Pre-amp.", "sWGA"), 
+      if_else(is_preamp, "SWGA & Targ. Pre-amp.", "SWGA"), 
       if_else(is_preamp, "Targ. Pre-amp.", "None")
     )
   ) %>%

@@ -41,7 +41,7 @@ reads_by_marker <- read_csv(
   filter(
     Source == "DBS", 
     Extraction == "Kit", 
-    Treatment %in% c("sWGA", "Targ. Pre-amp.")
+    Treatment %in% c("SWGA", "Targ. Pre-amp.")
   ) %>%
   select(-Source, -Extraction)
 selected_trgs <- read_csv(
