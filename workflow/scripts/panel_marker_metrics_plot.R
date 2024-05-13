@@ -27,13 +27,14 @@ arg <- parse_args(OptionParser(option_list = opts))
 #   targets = "../../results/trgs2filter/good_amp.csv"
 # )
 
-metric_barplot <- function(stats, metric, label_y_axis = TRUE) {
-  theme_tweaks <- NULL
-  if (! label_y_axis) {
+metric_barplot <- function(stats, metric, label_x_axis = TRUE) {
+  if (! label_x_axis) {
     theme_tweaks <- theme(
-      axis.text.y = element_blank(), 
-      axis.title.y = element_blank()
+      axis.text.x = element_blank(), 
+      axis.title.x = element_blank()
     )
+  } else {
+    theme_tweaks <- theme(axis.text.x = element_text(angle = 90, hjust = 1))
   }
   stat_lbl_key <- c(
     "mean_TD" = "Mean Tajima's D", 
@@ -41,9 +42,9 @@ metric_barplot <- function(stats, metric, label_y_axis = TRUE) {
     "mean_FST" = "Mean FST"
   )
   stats %>%
-    ggplot(mapping = aes(x = .data[[metric]], y = target)) +
+    ggplot(mapping = aes(x = target, y = .data[[metric]])) +
     geom_col() +
-    labs(x = stat_lbl_key[metric], y = "Target") +
+    labs(x = "Window", y = stat_lbl_key[metric]) +
     theme_bw() +
     theme_tweaks
 }
@@ -83,12 +84,12 @@ target_stats <- targets %>%
 
 # Create and save barplots
 fig <- (
-    metric_barplot(target_stats, "mean_ND") | 
-    metric_barplot(target_stats, "mean_FST", label_y_axis = FALSE)
+    metric_barplot(target_stats, "mean_ND", label_x_axis = FALSE) / 
+    metric_barplot(target_stats, "mean_FST")
   ) +
   plot_annotation(tag_levels = "A")
-w <- 8
-h <- 9
+w <- 9
+h <- 7
 ggsave(
   str_c(arg$out_base, ".pdf"), 
   plot = fig, 

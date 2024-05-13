@@ -65,9 +65,12 @@ localrules:
     plot_reads_by_marker, 
     plot_mean_het_by_pop, 
     plot_sample_rel, 
+    rel_heatmaps, 
     map_rel_net, 
+    compile_figs_tables, 
     push_results_notebooks, 
     push_figs, 
+    push_figs_tables_doc, 
     clean
 
 # Notebooks
@@ -97,8 +100,14 @@ figs = {
     "reads_by_marker": "suppfig1", 
     "mean_het_by_pop": "suppfig2", 
     "rel_hist": "suppfig3", 
+    "rel_heatmaps_country": "fig5", 
+    "rel_heatmaps_site": "suppfig4", 
     "site_rel_net": "fig6"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
+# Documents
+figs_tables_doc = os.path.join("results", "all_figs_tables.pdf")
+figs_tables_doc_flag = os.path.join(".flags", "push_figs_tables_doc")
+# Other outputs
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
 mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
@@ -108,6 +117,7 @@ rule all:
         expand(nb_flag_template, nb=notebook_basenames), 
         expand(os.path.join(figdir,"{fig}.png"), fig=list(figs.values())), 
         expand(fig_flag_template, fig=list(figs.values())), 
+        figs_tables_doc_flag, 
         mg_microhap_aligned_fasta_dir
 # For others attempting to run the pipeline on their own machine
 rule replicate:
@@ -116,7 +126,11 @@ rule replicate:
             "{nb}.{ext}", 
             nb=list(notebooks.values()), 
             ext=["nb.html","pdf","md"]), 
-        expand(os.path.join(figdir,"{fig}.{ext}"), fig=figs, ext=["png","pdf"])
+        expand(
+            os.path.join(figdir,"{fig}.{ext}"), 
+            fig=figs, 
+            ext=["png","pdf"]), 
+        figs_tables_doc
 
 # Reformat and filter primers
 sd_id_file = os.path.join("resources", "id_file.txt")
@@ -720,6 +734,8 @@ mg_pop_key = os.path.join("resources", "mg_pop_key.csv")
 rel_dir = os.path.join("results", "relatedness")
 sample_rel = os.path.join(rel_dir, "sample_rel.csv")
 site_rel = os.path.join(rel_dir, "site_rel.csv")
+country_rel_revcombs = os.path.join(rel_dir, "country_rel_revcombs.csv")
+site_rel_revcombs = os.path.join(rel_dir, "site_rel_revcombs.csv")
 rule analyze_relatedness:
     input:
         rel_mat, 
@@ -729,7 +745,9 @@ rule analyze_relatedness:
     output:
         multiext(notebooks["relatedness"], ".nb.html", ".pdf", ".md"), 
         sample_rel, 
-        site_rel
+        site_rel, 
+        country_rel_revcombs, 
+        site_rel_revcombs
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -845,6 +863,23 @@ rule plot_sample_rel:
     shell: 
         "Rscript {input.code} --rel_csv {input.rel_csv} --out_base "
         "{params.basename}"
+heatmap_scale_dict = {
+    figs["rel_heatmaps_country"]: country_rel_revcombs, 
+    figs["rel_heatmaps_site"]: site_rel_revcombs}
+rule rel_heatmaps:
+    input:
+        rel = lambda wildcards: heatmap_scale_dict[wildcards.fig], 
+        code = os.path.join("workflow", "scripts", "rel_heatmaps.R")
+    output: multiext(os.path.join(figdir,"{fig}"), ".pdf", ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4], 
+        scale = lambda wildcards: 
+            os.path.basename(heatmap_scale_dict[wildcards.fig]).split('_')[0]
+    wildcard_constraints:
+        fig = figs["rel_heatmaps_country"] + '|' + figs["rel_heatmaps_site"]
+    shell: 
+        "Rscript {input.code} --rel {input.rel} --scale {params.scale} "
+        "--out_base {params.basename}"
 rule map_rel_net:
     input:
         rel = site_rel, 
@@ -858,6 +893,17 @@ rule map_rel_net:
         "Rscript {input.code} --rel {input.rel} --site_coords "
         "{input.site_coords} --out_base {params.basename}"
 
+# Make PDF with all figures and tables
+rule compile_figs_tables:
+    input:
+        expand(os.path.join(figdir,"{fig}.pdf"), fig=list(figs.values())), 
+        code = os.path.join("workflow", "notebooks", "all_figs_tables.Rmd")
+    output: figs_tables_doc
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_dir = "results")'
+        """
+
 # Copy relevant outputs to shared Google Drive
 cloud_dir = "UNCC_GDrive:Alfred-Liz-PV-microhaplotype-files"
 rule push_results_notebooks:
@@ -870,6 +916,11 @@ rule push_figs:
     output: touch(fig_flag_template)
     priority: -1
     shell: "rclone copy {input} {cloud_dir}/figs --drive-shared-with-me"
+rule push_figs_tables_doc:
+    input: figs_tables_doc
+    output: touch(figs_tables_doc_flag)
+    priority: -1
+    shell: "rclone copy {input} {cloud_dir} --drive-shared-with-me"
 
 # Delete all outputs in preparation for rerunning pipeline from nothing
 rule clean:

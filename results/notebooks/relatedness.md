@@ -259,6 +259,8 @@ rev_combs <- filter(country_rel, country_a != country_b) %>%
   ) %>%
   select(-country_a_temp)
 country_rel <- bind_rows(country_rel, rev_combs)
+# Save to disk to create heatmaps for publication
+write_csv(country_rel, out$country_rel_revcombs)
 
 # Convert country fields to factors to control sorting -----------------
 country_levels <- c(
@@ -330,6 +332,8 @@ rev_combs <- filter(site_rel, site_a != site_b) %>%
   ) %>%
   select(-site_a_temp)
 site_rel <- bind_rows(site_rel, rev_combs)
+# Save to disk to create heatmaps for publication
+write_csv(site_rel, out$site_rel_revcombs)
 
 # Convert site fields to factors to control sorting --------------------
 site_levels <- c(

@@ -1,0 +1,79 @@
+---
+title: Plasmodium vivax Microhaplotype Panel Design and Validation
+subtitle: Figures and Tables
+output:
+  beamer_presentation:
+    colortheme: dolphin
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(knitr)
+library(magrittr)
+library(tidyverse)
+
+# Set default chunk parameters
+opts_chunk$set(echo = FALSE, fig.align = "center", out.width = "100%")
+```
+
+# Figure 1
+
+```{r}
+include_graphics("../../results/figs/fig1.pdf")
+```
+
+# Figure 2
+
+```{r}
+include_graphics("../../results/figs/fig2.pdf")
+```
+
+# Figure 3
+
+```{r}
+include_graphics("../../results/figs/fig3.pdf")
+```
+
+# Figure 4
+
+```{r}
+include_graphics("../../results/figs/fig4.pdf")
+```
+
+# Supplemental Figure 1
+
+```{r}
+include_graphics("../../results/figs/suppfig1.pdf")
+```
+
+# Supplemental Figure 2
+
+```{r}
+include_graphics("../../results/figs/suppfig2.pdf")
+```
+
+# Supplemental Figure 3
+
+```{r}
+include_graphics("../../results/figs/suppfig3.pdf")
+```
+
+# Figure 5
+
+```{r out.width = "80%"}
+include_graphics("../../results/figs/fig5.pdf")
+```
+
+# Supplemental Figure 4
+
+```{r}
+include_graphics("../../results/figs/suppfig4.pdf")
+```
+
+# Figure 6
+
+```{r out.width = "90%"}
+include_graphics("../../results/figs/fig6.pdf")
+```
