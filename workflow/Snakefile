@@ -40,6 +40,10 @@ localrules:
     collate_may2022_readcounts_metadata, 
     assess_marker_performance, 
     filter_bed, 
+    dwnld_ref_gff, 
+    unzip_ref_gff, 
+    subset_annot, 
+    refmt_annot, 
     dwnld_metadata, 
     dwnld_coi, 
     index_variant_file, 
@@ -108,6 +112,7 @@ fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 figs_tables_doc = os.path.join("results", "all_figs_tables.pdf")
 figs_tables_doc_flag = os.path.join(".flags", "push_figs_tables_doc")
 # Other outputs
+locus_metadata = os.path.join("results", "locus_metadata.tsv")
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
 mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
@@ -118,6 +123,7 @@ rule all:
         expand(os.path.join(figdir,"{fig}.png"), fig=list(figs.values())), 
         expand(fig_flag_template, fig=list(figs.values())), 
         figs_tables_doc_flag, 
+        locus_metadata, 
         mg_microhap_aligned_fasta_dir
 # For others attempting to run the pipeline on their own machine
 rule replicate:
@@ -130,7 +136,8 @@ rule replicate:
             os.path.join(figdir,"{fig}.{ext}"), 
             fig=figs, 
             ext=["png","pdf"]), 
-        figs_tables_doc
+        figs_tables_doc, 
+        locus_metadata
 
 # Reformat and filter primers
 sd_id_file = os.path.join("resources", "id_file.txt")
@@ -400,6 +407,43 @@ rule filter_bed:
                     if elements[3] in targets_keep:
                         out_bed.write(line)
 
+# Get gene symbols and names for panel
+ref_gff_zip = os.path.join("results", "GCA_900093555.2_gff.zip")
+rule dwnld_ref_gff:
+    output: temp(ref_gff_zip)
+    shell: 
+        "datasets download genome accession GCA_900093555.2 --include gff3 "
+        "--filename {output}"
+ref_gff_dir = os.path.join("results", "ref_gff")
+ref_gff = os.path.join(ref_gff_dir, "GCA_900093555.2", "genomic.gff")
+rule unzip_ref_gff:
+    input: ref_gff_zip
+    output: 
+        ref_gff, 
+        os.path.join(ref_gff_dir, "README.md"), 
+        os.path.join(ref_gff_dir, "assembly_data_report.jsonl"), 
+        os.path.join(ref_gff_dir, "dataset_catalog.json")
+    shell:
+        """
+        unzip {input} -d {ref_gff_dir}
+        mv {ref_gff_dir}/ncbi_dataset/data/* {ref_gff_dir}/
+        rm -r {ref_gff_dir}/ncbi_dataset
+        """
+panel_annot = os.path.join("results", "panel_annot.tsv")
+rule subset_annot:
+    input:
+        ref_gff = ref_gff, 
+        panel_bed = trg_coords_good_amp
+    output: panel_annot
+    shell: 
+        "bedtools intersect -a {input.panel_bed} -b {input.ref_gff} -loj > "
+        "{output}"
+rule refmt_annot:
+    input:
+        panel_annot = panel_annot, 
+        code = os.path.join("workflow", "scripts", "fmt_locus_metadata.R")
+    output: locus_metadata
+    shell: "Rscript {input.code} --annot {input.panel_annot} --out {output}"
 
 # Download MalariaGEN data
 malariagen_dir = os.path.join("results", "MalariaGEN")

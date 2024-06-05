@@ -3,6 +3,7 @@
 # Load required libraries ----------------------------------------------
 library(ggraph)
 library(rnaturalearth)
+library(rnaturalearthhires)
 library(tidygraph)
 # These libraries will be referenced without the library name and so 
 # should be loaded second
@@ -83,10 +84,7 @@ bnds <- c(
 )
 
 # Create and save map --------------------------------------------------
-countries <- rnaturalearth::ne_countries(
-  scale = "medium", 
-  returnclass = "sf"
-)
+countries <- rnaturalearth::ne_countries(scale = "large", returnclass = "sf")
 fig <- ggraph::ggraph(network) +
   geom_sf(data = countries) +
   annotate(

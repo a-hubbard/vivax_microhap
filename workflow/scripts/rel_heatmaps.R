@@ -108,7 +108,7 @@ if (identical(arg$scale, "site")) {
 } else if (identical(arg$scale, "country")) {
   fig <- rel_heatmap(rel, "mean_r")
   w <- 5
-  h <- 5
+  h <- 5.5
 }
 ggsave(
   str_c(arg$out_base, ".pdf"), 

@@ -4,3 +4,4 @@
 # the exact versions used (by sourcing this script and calling  
 # sessionInfo()).
 library(dcifer)
+library(rnaturalearthhires)

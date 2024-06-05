@@ -36,6 +36,7 @@ dependencies:
   - r-seqinr
   - bioconductor-biostrings
   - bioconductor-msa
+  - r-ape
   - r-pegas
   - r-poppr
   - r-adegenet
@@ -43,3 +44,5 @@ dependencies:
   - r-tidygraph
   # Recommended for many R packages
   - r-codetools
+  # Required for R package rnaturalearthhires
+  - r-sp
