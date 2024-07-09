@@ -151,6 +151,33 @@ sample_info_filterbyyear %>%
     ## 18 Vietnam     Ho Chi Min          18
     ## 19 Vietnam     Krong Pa            18
 
+# Study Information
+
+The following table shows which studies generated the data in the final
+analysis set.
+
+``` r
+# Print studies present in filtered data -------------------------------
+sample_info_filterbyyear %>%
+  group_by(Study, Site, Country, Year) %>%
+  summarize(n_samp = n(), .groups = "drop")
+```
+
+    ## # A tibble: 29 × 5
+    ##    Study              Site       Country   Year n_samp
+    ##    <chr>              <chr>      <chr>    <int>  <int>
+    ##  1 1098-PF-ET-GOLASSA Amhara     Ethiopia  2015     15
+    ##  2 1128-PV-MULTI-GSK  Gondar     Ethiopia  2015      1
+    ##  3 1128-PV-MULTI-GSK  Gondar     Ethiopia  2016      3
+    ##  4 1128-PV-MULTI-GSK  Ho Chi Min Vietnam   2015     10
+    ##  5 1128-PV-MULTI-GSK  Ho Chi Min Vietnam   2016      8
+    ##  6 1128-PV-MULTI-GSK  Iquitos    Peru      2015      3
+    ##  7 1128-PV-MULTI-GSK  Iquitos    Peru      2016      3
+    ##  8 1128-PV-MULTI-GSK  Jimma      Ethiopia  2016      2
+    ##  9 1128-PV-MULTI-GSK  Mae Sot    Thailand  2016      4
+    ## 10 1128-PV-MULTI-GSK  Manaus     Brazil    2015      2
+    ## # ℹ 19 more rows
+
 ``` r
 # Write sample information to disk -------------------------------------
 sample_info_filterbyyear %>%

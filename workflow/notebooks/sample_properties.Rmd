@@ -154,6 +154,18 @@ following table:
 sample_info_filterbyyear %>%
   group_by(Country, Site) %>%
   summarize(n_samp = n(), .groups = "drop")
+```
+
+# Study Information
+
+The following table shows which studies generated the data in the final analysis
+set.
+
+```{r}
+# Print studies present in filtered data -------------------------------
+sample_info_filterbyyear %>%
+  group_by(Study, Site, Country, Year) %>%
+  summarize(n_samp = n(), .groups = "drop")
 
 # Write sample information to disk -------------------------------------
 sample_info_filterbyyear %>%
