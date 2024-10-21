@@ -1,10 +1,10 @@
-Marker and Sample Diversity
+Locus and Sample Diversity
 ================
 Alfred Hubbard
 
-# Marker Diversity
+# Locus Diversity
 
-Nucleotide diversity was computed for each marker with
+Nucleotide diversity was computed for each locus with
 `pegas::nuc.div()`. Since this was done with pegas `haplotype` objects,
 the frequencies of each haplotype were used to perform this calculation.
 
@@ -15,9 +15,9 @@ nucleotides included in that ambiguity. Even so, sometimes it is not
 possible to assign a sequence with an ambiguity at a given position to
 other haplotypes that lack ambiguities at that position. In this
 scenario, pegas assigns this sequence to a new haplotype. That means
-that there tend to be a few low frequency haplotypes for each marker
-that were assigned this way because of ambiguities, and would be merged
-with one of the other haplotypes if the ambiguity could be resolved.
+that there tend to be a few low frequency haplotypes for each locus that
+were assigned this way because of ambiguities, and would be merged with
+one of the other haplotypes if the ambiguity could be resolved.
 
 All of that is to say the diversity numbers computed by pegas may be
 slightly inflated. Relative comparisons should be valid, but absolute
@@ -36,22 +36,22 @@ nuc_div_res <- read_rds(inp$mh_hap) %>%
   mutate(nuc_div = map_dbl(hap, pegas::nuc.div, pairwise.deletion = TRUE)) %>%
   select(-hap)
 nuc_div_res %>%
-  ggplot(mapping = aes(x = target, y = nuc_div)) +
+  ggplot(mapping = aes(x = locus, y = nuc_div)) +
   geom_col() +
-  labs(x = "Target", y = "Nucleotide Diversity") +
+  labs(x = "Locus", y = "Nucleotide Diversity") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/diversity_files/figure-gfm/unnamed-chunk-1-1.png" width="100%" />
 
-This bar plot shows the nucleotide diversity for each marker. There is
-considerable variability in the diversity of these markers, and a number
+This bar plot shows the nucleotide diversity for each locus There is
+considerable variability in the diversity of these loci, and a number
 don’t have any segregating sites, leading to a diversity of 0.
 
 # Genotype Accumulation Curve
 
 A genotype accumulation curve was calculated to assess whether there are
-sufficient markers in the dataset to distinguish individual samples.
+sufficient loci in the dataset to distinguish individual samples.
 
 First, loci with only one allele were filtered out of the dataset:
 
@@ -92,20 +92,20 @@ poppr::genotype_curve(mh_data_gd, sample = 1000, quiet = TRUE)
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/diversity_files/figure-gfm/unnamed-chunk-3-1.png" width="100%" />
 
-From this figure, it is apparent that there are plenty of markers in the
+From this figure, it is apparent that there are plenty of loci in the
 dataset to distinguish different samples, even once loci with only one
-allele were removed. In fact, it appears that only about 15 markers
-would be sufficient for this purpose.
+allele were removed. In fact, it appears that only about 15 loci would
+be sufficient for this purpose.
 
 # Sample Diversity
 
-To complement marker diversity, sample-level diversity was also
-estimated with Nei’s expected heterozygosity and evenness was calculated
-with the $E_5$ statistic. Two population strata were used for the entire
-dataset: populations as defined by the MalariaGEN project (“Population”)
-and countries. In addition, diversity was calculated at the site level
-for Cambodia and Vietnam, to facilitate comparison with some of the
-results in relatedness.Rmd.
+To complement locus diversity, sample-level diversity was also estimated
+with Nei’s expected heterozygosity and evenness was calculated with the
+$E_5$ statistic. Two population strata were used for the entire dataset:
+populations as defined by the MalariaGEN project (“Population”) and
+countries. In addition, diversity was calculated at the site level for
+Cambodia and Vietnam, to facilitate comparison with some of the results
+in relatedness.Rmd.
 
 ## By Population
 
@@ -117,13 +117,13 @@ poppr::poppr(mh_data_gd) %>%
 ```
 
     ##     Pop   N MLG  Hexp   E.5
-    ## 1    AF  36  33 0.452 0.930
-    ## 2   LAM  32  22 0.445 0.729
-    ## 3  MSEA   2   2 0.478 1.000
-    ## 4   WAS  16  14 0.452 0.947
-    ## 5  ESEA  72  68 0.446 0.955
-    ## 6  WSEA   9   9 0.488 1.000
-    ## 7   OCE  18  18 0.375 1.000
+    ## 1    AF  36  33 0.451 0.930
+    ## 2   LAM  32  22 0.454 0.729
+    ## 3  MSEA   2   2 0.451 1.000
+    ## 4   WAS  16  14 0.454 0.947
+    ## 5  ESEA  72  68 0.438 0.955
+    ## 6  WSEA   9   9 0.484 1.000
+    ## 7   OCE  18  18 0.374 1.000
     ## 8 Total 185 166 0.648 0.871
 
 This table gives the number of individuals, the number of multi-locus
@@ -147,16 +147,16 @@ poppr::poppr(mh_data_gd) %>%
 ```
 
     ##            Pop   N MLG  Hexp   E.5
-    ## 1     Ethiopia  36  33 0.452 0.930
-    ## 2         Peru   6   6 0.504 1.000
-    ## 3  Philippines   2   2 0.478 1.000
-    ## 4  Afghanistan  16  14 0.452 0.947
-    ## 5     Colombia  23  13 0.361 0.738
-    ## 6      Vietnam  53  49 0.442 0.942
-    ## 7     Thailand   9   9 0.488 1.000
-    ## 8     Cambodia  19  19 0.447 1.000
-    ## 9       Brazil   3   3 0.413 1.000
-    ## 10   Indonesia  18  18 0.375 1.000
+    ## 1     Ethiopia  36  33 0.451 0.930
+    ## 2         Peru   6   6 0.506 1.000
+    ## 3  Philippines   2   2 0.451 1.000
+    ## 4  Afghanistan  16  14 0.454 0.947
+    ## 5     Colombia  23  13 0.366 0.738
+    ## 6      Vietnam  53  49 0.434 0.942
+    ## 7     Thailand   9   9 0.484 1.000
+    ## 8     Cambodia  19  19 0.438 1.000
+    ## 9       Brazil   3   3 0.423 1.000
+    ## 10   Indonesia  18  18 0.374 1.000
     ## 11       Total 185 166 0.648 0.871
 
 Indonesia and Colombia stand out as having lower diversity than the
@@ -192,11 +192,11 @@ poppr::poppr(mh_data_gd) %>%
 ```
 
     ##              Pop  Country  N MLG  Hexp  E.5
-    ## 1       Krong Pa  Vietnam 18  15 0.431 0.89
-    ## 2          Dak O  Vietnam  9   9 0.430 1.00
-    ## 3     Binh Phuoc  Vietnam  8   8 0.499 1.00
-    ## 4     Ho Chi Min  Vietnam 18  17 0.408 0.97
-    ## 5 Oddar Meanchey Cambodia 19  19 0.447 1.00
+    ## 1       Krong Pa  Vietnam 18  15 0.417 0.89
+    ## 2          Dak O  Vietnam  9   9 0.422 1.00
+    ## 3     Binh Phuoc  Vietnam  8   8 0.495 1.00
+    ## 4     Ho Chi Min  Vietnam 18  17 0.404 0.97
+    ## 5 Oddar Meanchey Cambodia 19  19 0.438 1.00
 
 As at the coarser levels of aggregation, we see that the sites in
 Cambodia and Vietnam tend to have low diversity and high evenness.

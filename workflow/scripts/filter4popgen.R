@@ -14,8 +14,8 @@ opts <- list(
     help = "CSV file containing unfiltered microhaplotype data"
   ), 
   make_option(
-    "--trgs2filter", 
-    help = "CSV file containing list of targets to filter out"
+    "--loci2filter", 
+    help = "CSV file containing list of loci to filter out"
   ), 
   make_option(
     "--mh_out", 
@@ -38,14 +38,14 @@ mh_data <- read_csv(
   ), 
   progress = FALSE
 )
-trgs2filter <- read_csv(
-    arg$trgs2filter, 
+loci2filter <- read_csv(
+    arg$loci2filter, 
     col_types = cols(.default = col_character()), 
     progress = FALSE
   ) %$%
-  target
+  locus
 
 # Filter data and write to disk ----------------------------------------
 mh_data %>%
-  filter(! (target %in% trgs2filter)) %>%
+  filter(! (locus %in% loci2filter)) %>%
   write_csv(arg$mh_out)

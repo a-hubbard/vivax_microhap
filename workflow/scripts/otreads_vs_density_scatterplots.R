@@ -22,7 +22,7 @@ opts <- list(
 arg <- parse_args(OptionParser(option_list = opts))
 
 # Read in data ---------------------------------------------------------
-# Read counts for each target, with metadata
+# Read counts for each locus, with metadata
 read_counts <- read_csv(
     arg$readcounts_metadata, 
     col_types = cols(

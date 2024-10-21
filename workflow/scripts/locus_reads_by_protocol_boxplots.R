@@ -1,4 +1,4 @@
-# Box plots showing read counts by marker for the different protocols
+# Box plots showing read counts by locus for the different protocols
 
 # Load required libraries ----------------------------------------------
 # These libraries will be referenced without the library name and so 
@@ -15,8 +15,8 @@ opts <- list(
     help = "CSV file containing read counts and metadata for May 2022 runs"
   ), 
   make_option(
-    "--selected_trgs", 
-    help = "CSV file identifying targets selected for final panel"
+    "--selected_loci", 
+    help = "CSV file identifying loci selected for final panel"
   ), 
   make_option("--out_base", help = "Basename for output figure")
 )
@@ -24,7 +24,7 @@ arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
 # arg <- list(
 #   readcounts_metadata = "../../results/may2022_readcounts_metadata.csv", 
-#   selected_trgs = "../../results/trgs2filter/good_amp.csv"
+#   selected_loci = "../../results/loci2filter/good_amp.csv"
 # )
 
 protocol_boxplot <- function(read_counts, dna_source) {
@@ -41,12 +41,12 @@ protocol_boxplot <- function(read_counts, dna_source) {
     geom_boxplot() +
     scale_y_continuous(trans = "log10") +
     color_scale +
-    labs(x = "Enrichment Method", y = "Mean Target Read Count") +
+    labs(x = "Enrichment Method", y = "Mean Locus Read Count") +
     theme_bw()
 }
 
 # Read in data ---------------------------------------------------------
-reads_by_marker <- read_csv(
+reads_by_locus <- read_csv(
     arg$readcounts_metadata, 
     col_types = cols(
       .default = col_character(), 
@@ -58,26 +58,26 @@ reads_by_marker <- read_csv(
   ) %>%
   # Filter out runs with both SWGA and target pre-amplification
   filter(Treatment != "SWGA & Targ. Pre-amp.")
-selected_trgs <- read_csv(
-  arg$selected_trgs, 
+selected_loci <- read_csv(
+  arg$selected_loci, 
   col_types = cols(.default = col_character()), 
   progress = FALSE
 )
 
-# Filter markers and compute mean read count across samples ------------
-mean_read_counts <- selected_trgs %>%
-  # Use left_join to filter to selected markers
-  left_join(reads_by_marker, by = "target") %>%
+# Filter loci and compute mean read count across samples ---------------
+mean_read_counts <- selected_loci %>%
+  # Use left_join to filter to selected loci
+  left_join(reads_by_locus, by = "locus") %>%
   # Make all missing data explicit
   complete(
     SID, 
     Source, 
     Treatment, 
     Extraction, 
-    target, 
+    locus, 
     fill = list(n_read = 0)
   ) %>%
-  group_by(target, Treatment, Extraction, Source) %>%
+  group_by(locus, Treatment, Extraction, Source) %>%
   summarize(mean_read_count = mean(n_read), .groups = "drop") %>%
   # Add 1 to all reads to enable use of log10 transformation
   mutate(mean_read_count = mean_read_count + 1)

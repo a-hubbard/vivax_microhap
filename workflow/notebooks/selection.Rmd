@@ -1,5 +1,5 @@
 ---
-title: Test for Selective Pressure on each Marker
+title: Test for Selective Pressure on each Locus
 author: Alfred Hubbard
 output:
   html_notebook: default
@@ -27,11 +27,11 @@ theme_set(theme_bw())
 inp <- list(
   mh_popbin = "../../results/microhap/MalariaGEN/mg_microhap_popbin.rds"
 )
-out <- list(trgs2filter = "../../results/trgs2filter/selec.csv")
+out <- list(loci2filter = "../../results/loci2filter/selec.csv")
 ```
 
 The Tajima test was used to look for an impact of natural selection on the 
-markers selected for this panel. Tajima exploited the fact that two metrics of 
+loci selected for this panel. Tajima exploited the fact that two metrics of 
 genetic diversity, the number of segregating sites and the average number of 
 pairwise nucleotide differences, differ in their response to selection to create 
 a test for selection based on the difference between these two metrics.
@@ -71,12 +71,12 @@ selec_res <- mh_popbin %>%
 
 # Analyze warnings -----------------------------------------------------
 selec_res %>%
-  select(target, selec_warn) %>%
+  select(locus, selec_warn) %>%
   unnest(selec_warn) %$%
   unique(selec_warn)
 ```
 
-This warning is expected for some of the target/population combinations, and is
+This warning is expected for some of the locus/population combinations, and is
 not cause for concern.
 
 The distribution of *p*-values obtained for these tests is given below.
@@ -124,7 +124,7 @@ selec_res_signif %>%
   select(-chrom)
 ```
 
-The table above shows the target/population combinations that yielded a 
+The table above shows the locus/population combinations that yielded a 
 significant result at this corrected threshold. These results suggest that 
 pvcrt_o.10k.indel may be under selective pressure in the WAS and ESEA 
 populations, and PvP01_10_v1_1072001_1072200 may be under selective pressure in 
@@ -132,9 +132,9 @@ the WAS population. These loci will be removed for downstream population genetic
 analyses that assume neutral markers.
 
 ```{r}
-# Save list of targets to filter ---------------------------------------
+# Save list of loci to filter ---------------------------------------
 selec_res_signif %>%
-  select(target) %>%
+  select(locus) %>%
   distinct() %>%
-  write_csv(out$trgs2filter)
+  write_csv(out$loci2filter)
 ```

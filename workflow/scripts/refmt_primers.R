@@ -43,7 +43,7 @@ targets_include_exclude <- read_excel(
 primers_filtered <- primers_all %>%
   filter(! (target %in% targets_include_exclude$Exclude)) %>%
   # We decided to use the OLD samples, which were not sequenced for the 
-  # SNP markers, so these are removed
+  # SNP loci, so these are removed
   filter(! str_detect(target, "SNP"))
 
 # Write to disk --------------------------------------------------------

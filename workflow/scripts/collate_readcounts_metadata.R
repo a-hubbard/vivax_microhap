@@ -11,7 +11,7 @@ library(tidyverse)
 opts <- list(
   make_option(
     "--read_counts", 
-    help = "TSV file containing read counts separated by target"
+    help = "TSV file containing read counts separated by locus"
   ), 
   make_option(
     "--metadata", 
@@ -22,10 +22,10 @@ opts <- list(
 arg <- parse_args(OptionParser(option_list = opts))
 
 # Read in data ---------------------------------------------------------
-# Read counts for each target
+# Read counts for each locus
 read_counts <- read_tsv(
   arg$read_counts, 
-  col_names = c("target", "protocol_well", "n_read"), 
+  col_names = c("locus", "protocol_well", "n_read"), 
   col_types = cols(.default = col_character(), n_read = col_integer()), 
   progress = FALSE
 )

@@ -53,7 +53,7 @@ bf_thres <- 0.05 / nrow(pairwise_ld_res)
 bf_thres
 ```
 
-    ## [1] 1.434309e-05
+    ## [1] 1.306165e-05
 
 ``` r
 pairwise_ld_res_signif <- pairwise_ld_res %>%

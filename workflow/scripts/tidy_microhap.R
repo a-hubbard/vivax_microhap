@@ -28,7 +28,7 @@ opts <- list(
   make_option("--out_csv", help = "CSV file to contain tidied data"), 
   make_option(
     "--alignments_fasta_dir", 
-    help = "Directory to contain FASTAs with alignments for each target"
+    help = "Directory to contain FASTAs with alignments for each locus"
   )
 )
 arg <- parse_args(OptionParser(option_list = opts))
@@ -65,8 +65,8 @@ alignment2tib <- function(alignment) {
   )
 }
 
-alignedseq2fasta <- function(target, seqs) {
-  fasta <- file.path(arg$alignments_fasta_dir, str_c(target, ".fa"))
+alignedseq2fasta <- function(locus, seqs) {
+  fasta <- file.path(arg$alignments_fasta_dir, str_c(locus, ".fa"))
   seqinr::write.fasta(as.list(seqs$hapseq), seqs$sample_id, fasta)
 }
 
@@ -87,11 +87,11 @@ mh_data <- tibble(
   unnest(seqtib) %>%
   select(-filename, -seqlist)
 
-# Read in target coordinates and use to join in target names -----------
+# Read in target coordinates and use to join in locus names ------------
 trg_loc_name_key <- read_tsv(
     arg$trg_coords, 
     col_types = cols(.default = col_character()), 
-    col_names = c("chrom", "start_pos", "end_pos", "target"), 
+    col_names = c("chrom", "start_pos", "end_pos", "locus"), 
     progress = FALSE
   ) %>%
   unite(coords, start_pos, end_pos, sep = "-") %>%
@@ -100,28 +100,28 @@ mh_data <- mh_data %>%
   left_join(trg_loc_name_key, by = c("seqloc" = "trgloc")) %>%
   separate(seqloc, "chrom", sep = ":", extra = "drop")
 
-# Align sequences for each target --------------------------------------
+# Align sequences for each locus ---------------------------------------
 # Used for development
-# mh_data <- filter(mh_data, target == "pvcrt_o.10k.indel")
+# mh_data <- filter(mh_data, locus == "pvcrt_o.10k.indel")
 mh_data <- mh_data %>%
-  nest(trg_seqs = c(sample_id, hapseq)) %>%
-  mutate(trg_seqs_aligned = map(trg_seqs, align_seqtib)) %>%
-  select(-trg_seqs)
+  nest(locus_seqs = c(sample_id, hapseq)) %>%
+  mutate(locus_seqs_aligned = map(locus_seqs, align_seqtib)) %>%
+  select(-locus_seqs)
 # Save aligned sequences for diversity and selection analyses
 write_rds(mh_data, arg$aligned_haps)
 
 # Convert aligned sequences back to character vectors ------------------
 mh_data <- mh_data %>%
-  mutate(seqtib = map(trg_seqs_aligned, alignment2tib)) %>%
-  select(-trg_seqs_aligned) %>%
+  mutate(seqtib = map(locus_seqs_aligned, alignment2tib)) %>%
+  select(-locus_seqs_aligned) %>%
   unnest(seqtib)
-# Print whether any targets have gaps
-trgs_w_gaps <- mh_data %>%
+# Print whether any loci have gaps
+loci_w_gaps <- mh_data %>%
   filter(str_detect(hapseq, "-")) %$%
-  unique(target)
-if (length(trgs_w_gaps > 0)) {
-  print("The following targets have gaps in their alignments:")
-  print(trgs_w_gaps)
+  unique(locus)
+if (length(loci_w_gaps > 0)) {
+  print("The following loci have gaps in their alignments:")
+  print(loci_w_gaps)
 }
 
 # Read and join sample metadata ----------------------------------------
@@ -146,6 +146,6 @@ mh_data <- mh_data %>%
 write_csv(mh_data, arg$out_csv)
 # FASTA files with alignments, in case visualization is desired
 mh_data %>%
-  select(target, sample_id, hapseq) %>%
-  nest(trg_seqs = c(sample_id, hapseq)) %$%
-  walk2(target, trg_seqs, alignedseq2fasta)
+  select(locus, sample_id, hapseq) %>%
+  nest(locus_seqs = c(sample_id, hapseq)) %$%
+  walk2(locus, locus_seqs, alignedseq2fasta)

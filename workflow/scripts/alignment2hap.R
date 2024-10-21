@@ -61,7 +61,7 @@ match_samples2haps <- function(alignments, haplotypes) {
 # Read in aligned sequences and convert to haplotype objects -----------
 mh_aligned <- read_rds(arg$alignments)
 mh_hap <- mh_aligned %>%
-  mutate(hap_out = map(trg_seqs_aligned, alignment2hap)) %>%
+  mutate(hap_out = map(locus_seqs_aligned, alignment2hap)) %>%
   mutate(hap = map(hap_out, pluck, "result")) %>%
   mutate(hap_warn = map(hap_out, pluck, "warnings")) %>%
   select(-hap_out) 
@@ -80,20 +80,20 @@ mh_hap <- mh_aligned %>%
 # an issue with the analysis.
 print("The warnings obtained during the haplotype conversion are:")
 mh_hap %>%
-  select(target, hap_warn) %>%
+  select(locus, hap_warn) %>%
   unnest(hap_warn) %$%
   unique(hap_warn)
 
 # Save haplotype tibble to disk ----------------------------------------
 mh_hap %>%
-  select(-trg_seqs_aligned, -hap_warn) %>%
+  select(-locus_seqs_aligned, -hap_warn) %>%
   write_rds(arg$haplotypes)
 
-# Match sample and haplotype IDs for all targets -----------------------
+# Match sample and haplotype IDs for all loci --------------------------
 sample_hap_key <- mh_hap %>%
   select(-chrom, -hap_warn) %>%
-  mutate(sample_hap_key = map2(trg_seqs_aligned, hap, match_samples2haps)) %>%
-  select(-trg_seqs_aligned, -hap) %>%
+  mutate(sample_hap_key = map2(locus_seqs_aligned, hap, match_samples2haps)) %>%
+  select(-locus_seqs_aligned, -hap) %>%
   unnest(sample_hap_key)
 
 # Read microhaplotype CSV, join haplotype IDs, and write back to disk --
@@ -110,5 +110,5 @@ mh_data <- read_csv(
     ), 
     progress = FALSE
   ) %>%
-  left_join(sample_hap_key, by = c("target", "sample_id")) %>%
+  left_join(sample_hap_key, by = c("locus", "sample_id")) %>%
   write_csv(arg$mh_csv_w_hap_ids)

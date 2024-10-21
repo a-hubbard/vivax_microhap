@@ -18,6 +18,8 @@ dependencies:
   # came with Snakemake 8.0.0.
   - snakemake<8.0.0
   - ncbi-datasets-cli
+  - fastqc
+  - multiqc
   - bwa
   - samtools
   - bedtools

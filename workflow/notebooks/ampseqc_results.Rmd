@@ -1,0 +1,221 @@
+---
+title: Visualization of Read Counts from AmpSeQC
+author: Alfred Hubbard
+output:
+  html_notebook: default
+  pdf_document: default
+  github_document: default
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(magrittr)
+library(purrr)
+library(readr)
+library(stringr)
+library(tidyr)
+
+# Don't include code in PDF output
+opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+# Set default ggplot2 theme
+theme_set(theme_bw())
+
+# Hardcode parameters. These are not passed as shell arguments because 
+# hardcoded values facilitate development and this document is not 
+# meant to be usable with other projects.
+inp <- list(
+  may2022_read_counts = "../../results/AmpSeQC/May2022/read_counts.tsv", 
+  uci1223_read_counts = "../../results/AmpSeQC/UCI1223/read_counts.tsv"
+)
+out <- list(loci_good_amp = "../../results/loci2filter/good_amp.csv")
+```
+
+# Read Counts
+
+## May 2022
+
+```{r message = FALSE}
+plot_failed_reads <- function(read_counts) {
+  read_counts %>%
+    select(
+      sample_id, 
+      `__no_feature`, 
+      `__ambiguous`, 
+      `__too_low_aQual`, 
+      `__not_aligned`, 
+      `__alignment_not_unique`
+    ) %>%
+    pivot_longer(-sample_id, names_to = "reason", values_to = "n_read") %>%
+    ggplot(mapping = aes(x = n_read)) +
+    geom_histogram(bins = 30) +
+    facet_wrap(vars(reason)) +
+    labs(x = "No. of Reads", y = "No. of Replicates")
+}
+
+# Read in read counts --------------------------------------------------
+may2022_read_counts <- read_tsv(
+    inp$may2022_read_counts, 
+    col_types = cols(.default = col_integer(), sample = col_character()), 
+    progress = FALSE
+  ) %>%
+  rename(sample_id = sample)
+may2022_read_counts_byloc <- may2022_read_counts %>%
+  select(
+    -`__no_feature`, 
+    -`__ambiguous`, 
+    -`__too_low_aQual`, 
+    -`__not_aligned`, 
+    -`__alignment_not_unique`
+  ) %>%
+  pivot_longer(-sample_id, names_to = "locus", values_to = "n_read")
+
+# Plot distribution of failed reads by reason --------------------------
+plot_failed_reads(may2022_read_counts)
+```
+
+These histograms show the number of replicates with a certain number of reads 
+that failed for each reason identified by AmpSeQC. There are quite a few reads 
+that failed because of the "no\_feature" condition, which, according to the
+`htseq-count` documentation, means that they aligned to the reference but did
+not correspond to any of the provided features.
+
+The total number of reads that passed AmpSeQC's filters is:
+
+```{r fig.width = 20, fig.height = 13}
+read_count_heatmap <- function(reads, 
+                               fill_scale = scale_fill_fermenter(
+                                 palette = "YlGnBu", 
+                                 name = "Reads", 
+                                 breaks = c(10, 100, 1000, 2000)
+                               ), 
+                               theme_tweaks = NULL) {
+  ggplot(
+      data = reads, 
+      mapping = aes(x = locus, y = sample_id, fill = n_read)
+    ) +
+    geom_tile() +
+    fill_scale +
+    labs(x = "Locus", y = "Replicate") +
+    theme(
+      axis.text.x = element_text(angle = 90, hjust = 1), 
+      legend.position = "bottom", 
+      legend.key.width = unit(0.35, "in")
+    ) +
+    theme_tweaks
+}
+
+# Print total read count -----------------------------------------------
+sum(may2022_read_counts_byloc$n_read)
+
+# Plot read counts by locus and replicate ------------------------------
+may2022_read_counts_byloc %>%
+  read_count_heatmap()
+```
+
+This heatmap shows the number of reads identified for each locus/replicate
+combination. It is expected that some loci will have no reads, as the primer set
+used for this run was reduced relative to the original panel design. As for the
+remaining loci, read counts vary to a substantial extent by replicate, but this
+is also expected to some extent because several different library prep protocols
+are represented in this figure. These are compared elsewhere.
+
+## UCI 12/23
+
+```{r message = FALSE}
+# Read in read counts --------------------------------------------------
+uci1223_read_counts <- read_tsv(
+    inp$uci1223_read_counts, 
+    col_types = cols(.default = col_integer(), sample = col_character()), 
+    progress = FALSE
+  ) %>%
+  rename(sample_id = sample)
+uci1223_read_counts_byloc <- uci1223_read_counts %>%
+  select(
+    -`__no_feature`, 
+    -`__ambiguous`, 
+    -`__too_low_aQual`, 
+    -`__not_aligned`, 
+    -`__alignment_not_unique`
+  ) %>%
+  pivot_longer(-sample_id, names_to = "locus", values_to = "n_read")
+
+# Plot distribution of failed reads by reason --------------------------
+plot_failed_reads(uci1223_read_counts)
+```
+
+These histograms show the number of replicates with a certain number of reads 
+that failed for each reason identified by AmpSeQC. For all of the failure
+conditions, the read counts are at or near 0, indicating no cause for concern.
+Because the "no\_feature" category is essentially empty in this case, the reads
+falling into that category for the May 2022 data were not investigated further.
+
+The total number of reads that passed AmpSeQC's filters is:
+
+```{r fig.width = 20, fig.height = 30}
+# Print total read count -----------------------------------------------
+sum(uci1223_read_counts_byloc$n_read)
+
+# Plot read counts by locus and replicate ------------------------------
+uci1223_read_counts_byloc %>%
+  read_count_heatmap()
+```
+
+This heatmap shows the number of reads identified for each locus/replicate
+combination. As above, some loci are expected to lack data because primers were
+not included for those loci. Of the remaining loci, we obtained adequate read
+counts for many replicates, but for many other replicates we obtained almost
+nothing.
+
+# Selected Loci
+
+To select loci to include in the final panel, loci with good amplification in
+both tests with field samples are identified. First, only loci with data in both
+runs are considered.
+
+```{r}
+# Identify loci present in both datasets -------------------------------
+may2022_loci_wdata <- may2022_read_counts_byloc %>%
+  filter(n_read > 0) %$%
+  locus
+uci1223_loci_wdata <- uci1223_read_counts_byloc %>%
+  filter(n_read > 0) %$%
+  locus
+loci_good_amp <- union(may2022_loci_wdata, uci1223_loci_wdata)
+```
+
+Then, the read count heatmaps are recreated showing only these loci.
+
+```{r fig.width = 16, fig.height = 13}
+may2022_read_counts_byloc %>%
+  filter(locus %in% loci_good_amp) %>%
+  read_count_heatmap()
+```
+
+```{r fig.width = 16, fig.height = 30}
+uci1223_read_counts_byloc %>%
+  filter(locus %in% loci_good_amp) %>%
+  read_count_heatmap()
+```
+
+There are one or two loci in each run that consistently did not amplify well,
+but they are not the same loci between runs. Therefore, we decided not to remove
+any more loci. It has been demonstrated that all loci in this panel have
+amplified well in at least one sequencing run, and we can hope that under
+favorable conditions the set represented in these figures will all yield good
+results.
+
+There are `r length(loci_good_amp)` loci in this final set, and they are:
+
+```{r}
+loci_good_amp
+```
+
+```{r}
+tibble(locus = loci_good_amp) %>%
+  write_csv(out$loci_good_amp)
+```

@@ -59,8 +59,8 @@ sample_pop_key <- mh_meta %>%
 mh_align %>%
   mutate(pop_id = list(unique(sample_pop_key$Population))) %>%
   unnest(pop_id) %>%
-  mutate(seqs_dnabin = map(trg_seqs_aligned, ape::as.DNAbin)) %>%
-  select(-trg_seqs_aligned) %>%
+  mutate(seqs_dnabin = map(locus_seqs_aligned, ape::as.DNAbin)) %>%
+  select(-locus_seqs_aligned) %>%
   mutate(
     seqs_dnabin = map2(seqs_dnabin, pop_id, subset_by_pop, sample_pop_key)
   ) %>%

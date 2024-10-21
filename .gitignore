@@ -10,4 +10,4 @@ logs/*
 .flags/*
 .RData
 .Rhistory
-resources/seq_output/*
+resources/seq_data/*

@@ -28,7 +28,7 @@ arg <- parse_args(OptionParser(option_list = opts))
 set.seed(arg$seed)
 
 # Read data ------------------------------------------------------------
-gen_data <- dcifer::readDat(arg$gen_data, "sample_id", "target", "hap_id")
+gen_data <- dcifer::readDat(arg$gen_data, "sample_id", "locus", "hap_id")
 
 # Compute relatedness and save -----------------------------------------
 moi <- rep_len(1, length(gen_data))

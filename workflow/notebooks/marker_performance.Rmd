@@ -27,7 +27,6 @@ inp <- list(
   mh_combined = "../../resources/Microhap_PV_combined-data_2023-06-21", 
   gbpcd_meta = "../../resources/GBPCD_meta.csv"
 )
-out <- list(filtered_trgs = "../../results/trgs2filter/good_amp.csv")
 ```
 
 For reference, this table gives some of the metadata associated with the samples
@@ -43,7 +42,7 @@ read_count_heatmap <- function(reads,
                                theme_tweaks = NULL) {
   ggplot(
       data = reads, 
-      mapping = aes(x = target, y = sample_id, fill = n_read)
+      mapping = aes(x = locus, y = sample_id, fill = n_read)
     ) +
     geom_tile() +
     facet_wrap(vars(treatment_source), ncol = 1) +
@@ -101,13 +100,13 @@ mh_combined %>%
 
 # Calculate total reads ------------------------------------------------
 total_reads <- mh_combined %>%
-  rename(target = Primer, sample_id = SID) %>%
+  rename(locus = Primer, sample_id = SID) %>%
   unite(treatment_source, Treatment, Source) %>%
-  group_by(target, sample_id, treatment_source) %>%
+  group_by(locus, sample_id, treatment_source) %>%
   summarize(n_read = sum(Reads), .groups = "drop") %>%
-  complete(target, sample_id, treatment_source, fill = list(n_read = 0))
+  complete(locus, sample_id, treatment_source, fill = list(n_read = 0))
 
-# Plot read counts for each sample/target for the DBS treatments -------
+# Plot read counts for each sample/locus for the DBS treatments --------
 whole_blood_samples <- mh_combined %>%
   filter(str_detect(Source, "Whole blood")) %$%
   unique(SID)
@@ -119,11 +118,11 @@ total_reads %>%
   read_count_heatmap()
 ```
 
-These heatmaps show the total reads obtained for each sample/target combination
+These heatmaps show the total reads obtained for each sample/locus combination
 for all of the DBS treatments.
 
 ```{r message = FALSE, fig.width = 20, fig.height = 8}
-# Plot read counts for each sample/target for whole blood trials -------
+# Plot read counts for each sample/locus for whole blood trials --------
 total_reads %>%
   filter(
     sample_id %in% whole_blood_samples, 
@@ -134,36 +133,3 @@ total_reads %>%
 
 These heatmaps show the same thing, except for the library prep methods that
 utilized whole blood.
-
-The point of this analysis is to identify any markers that consistently don't
-amplify and should not be included in the MalariaGEN analyses. These plots
-indicate three markers that consistently yield poor results. A marker set
-without these problematic markers is created for use in subsequent analyses.
-
-```{r}
-# Filter targets to analysis set and save ------------------------------
-targets <- total_reads %>%
-  select(target) %>%
-  distinct() %>%
-  filter(
-    ! target %in% c(
-      "PvP01_07_v1_500001_500200", 
-      "PvP01_14_v1_1887501_1887700", 
-      "PvP01_14_v1_2759601_2759800"
-    )
-  )
-targets %>%
-  write_csv(out$filtered_trgs)
-selected_windows <- targets %>%
-  filter(str_detect(target, "PvP01"))
-other_targets <- targets %>%
-  filter(! str_detect(target, "PvP01"))
-```
-
-The final set of markers consists of `r nrow(selected_windows)` selected genome
-windows, plus `r nrow(other_targets)` other targets of interest. These
-additional targets are:
-
-```{r}
-other_targets
-```

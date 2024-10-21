@@ -1,4 +1,4 @@
-# Box plots showing mean marker heterozygosity across populations
+# Box plots showing mean locus heterozygosity across populations
 
 # Load required libraries ----------------------------------------------
 library(adegenet)
@@ -51,7 +51,7 @@ mean_het_boxplot <- function(gendata, pop_level) {
       select(Pop)
   }
 
-  # Compute mean marker heterozygosity ---------------------------------
+  # Compute mean locus heterozygosity ----------------------------------
   mean_het_by_pop <- mean_het_by_pop %>%
     mutate(
       locus_stats = map(

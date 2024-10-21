@@ -39,14 +39,14 @@ mh_data <- read_csv(
     ), 
     progress = FALSE
   ) %>%
-  select(target, sample_id, hap_id, Population, Country, Site)
+  select(locus, sample_id, hap_id, Population, Country, Site)
 
 # Convert to genind object and save ------------------------------------
 mh_data_wide <- mh_data %>%
   # Required by adegenet
-  mutate(target = str_replace_all(target, "\\.", "_")) %>%
+  mutate(locus = str_replace_all(locus, "\\.", "_")) %>%
   mutate(Population = as.factor(Population)) %>%
-  pivot_wider(values_from = "hap_id", names_from = "target") %>%
+  pivot_wider(values_from = "hap_id", names_from = "locus") %>%
   column_to_rownames("sample_id")
 mh_data_wide %>%
   select(-Population, -Country, -Site) %>%

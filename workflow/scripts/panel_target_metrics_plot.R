@@ -1,4 +1,4 @@
-# Bar plots showing marker metrics from panel design
+# Bar plots showing target metrics from panel design
 
 # Load required libraries ----------------------------------------------
 # These libraries will be referenced without the library name and so 
@@ -24,7 +24,7 @@ arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
 # arg <- list(
 #   window_stats = "../../resources/filtered_windows_tab.txt", 
-#   targets = "../../results/trgs2filter/good_amp.csv"
+#   targets = "../../results/loci2filter/good_amp.csv"
 # )
 
 metric_barplot <- function(stats, metric, label_x_axis = TRUE) {
@@ -66,10 +66,11 @@ window_stats <- read_tsv(
   # This column is empty
   select(-`...10`)
 targets <- read_csv(
-  arg$targets, 
-  col_types = cols(.default = col_character()), 
-  progress = FALSE
-)
+    arg$targets, 
+    col_types = cols(.default = col_character()), 
+    progress = FALSE
+  ) %>%
+  rename(target = locus)
 
 # Filter window stats to selected targets ------------------------------
 window_stats <- window_stats %>%

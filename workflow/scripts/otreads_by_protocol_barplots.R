@@ -40,7 +40,7 @@ protocol_barplot <- function(pct_ot_reads, dna_source) {
 }
 
 # Read in data ---------------------------------------------------------
-# Read counts for each target, with metadata
+# Read counts for each locus, with metadata
 read_counts <- read_csv(
     arg$readcounts_metadata, 
     col_types = cols(

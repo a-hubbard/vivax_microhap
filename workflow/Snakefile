@@ -39,7 +39,16 @@ localrules:
     investigate_mapping, 
     collate_may2022_readcounts_metadata, 
     assess_marker_performance, 
+    index_ref_samtools, 
+    targets_bed2gff, 
+    analyze_ampseqc_results, 
     filter_bed, 
+    filter_primers, 
+    multiqc_uci1223_data, 
+    list_uci1223_fastqs, 
+    postproc_dada2_uci1223, 
+    asv2cigar_uci1223, 
+    assess_microhap_quantity_uci1223, 
     dwnld_ref_gff, 
     unzip_ref_gff, 
     subset_annot, 
@@ -47,7 +56,7 @@ localrules:
     dwnld_metadata, 
     dwnld_coi, 
     index_variant_file, 
-    filter_bcf_by_marker, 
+    filter_bcf_by_locus, 
     concat_bcfs, 
     filter_vcf_by_snpqc, 
     compute_missbysamp, 
@@ -62,11 +71,11 @@ localrules:
     assess_selection, 
     filter4popgen, 
     analyze_relatedness, 
-    plot_panel_marker_metrics, 
+    plot_panel_target_metrics, 
     plot_otreads_by_protocol, 
-    plot_marker_reads_by_protocol, 
+    plot_locus_reads_by_protocol, 
     plot_otreads_vs_density, 
-    plot_reads_by_marker, 
+    plot_reads_by_locus, 
     plot_mean_het_by_pop, 
     plot_sample_rel, 
     rel_heatmaps, 
@@ -83,6 +92,8 @@ notebooks = {}
 notebook_basenames = [
     "investigate_mapping", 
     "marker_performance", 
+    "ampseqc_results", 
+    "microhap_quantity_uci1223", 
     "sample_properties", 
     "diversity", 
     "ld", 
@@ -97,11 +108,11 @@ nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
 # material and the main document
 figdir = os.path.join("results", "figs")
 figs = {
-    "panel_marker_metrics": "fig1", 
+    "panel_target_metrics": "fig1", 
     "otreads_by_protocol": "fig2", 
-    "marker_reads_by_protocol": "fig3", 
+    "locus_reads_by_protocol": "fig3", 
     "otreads_vs_density": "fig4", 
-    "reads_by_marker": "suppfig1", 
+    "reads_by_locus": "suppfig1", 
     "mean_het_by_pop": "suppfig2", 
     "rel_hist": "suppfig3", 
     "rel_heatmaps_country": "fig5", 
@@ -183,7 +194,7 @@ rule unzip_ref:
     shell:
         """
         unzip {input} -d {ref_genome_dir}
-        mv {ref_genome_dir}/ncbi_dataset/data/* {ref_genome_dir}/
+        mv -f {ref_genome_dir}/ncbi_dataset/data/* {ref_genome_dir}/
         rm -r {ref_genome_dir}/ncbi_dataset
         """
 # Necessary for mapping
@@ -319,16 +330,6 @@ rule captured_seq_bounds:
                         chrom = ""
                         target = ""
 
-# Extract sequence captured by primers from reference
-captured_seq = os.path.join(prim_map_dir, "captured_seq.fasta")
-rule extract_captured_seq:
-    input: 
-        ref_genome_index, 
-        ref = ref_genome, 
-        bed = trg_coords_noprimers
-    output: captured_seq
-    shell: 
-        "bedtools getfasta -fi {input.ref} -bed {input.bed} > {output}"
 # Check mapping for issues
 rule investigate_mapping:
     input:
@@ -364,34 +365,153 @@ rule collate_may2022_readcounts_metadata:
 microhap_combined = os.path.join(
     "resources", 
     "Microhap_PV_combined-data_2023-06-21")
-trgs2filter_dir = os.path.join("results", "trgs2filter")
-trgs2filter_good_amp = os.path.join(trgs2filter_dir, "good_amp.csv")
 rule assess_marker_performance:
     input:
         microhap_combined, 
         os.path.join("resources", "GBPCD_meta.csv"), 
         code = os.path.join("workflow", "notebooks", "marker_performance.Rmd")
     output: 
-        multiext(notebooks["marker_performance"], ".nb.html", ".pdf", ".md"), 
-        selected_trgs = trgs2filter_good_amp
+        multiext(notebooks["marker_performance"], ".nb.html", ".pdf", ".md")
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
         """
-# Filter marker set to those that performed well. Note that there are a 
-# number of targets that are in the SeekDeep ID file but do not show up 
-# in the May 2022 data (aside from SNP markers and other targets 
-# filtered out in previous steps). These targets are also filtered out 
-# in this step, in addition to those that were in the May 2022 data but 
-# didn't amplify well.
+
+# Check quality of UCI 12/23 data
+raw_seq_dir = os.path.join("resources", "seq_data")
+uci1223_dir = os.path.join(raw_seq_dir, "lbradle123121251")
+uci1223_seqs = [
+    f for f in glob.glob(os.path.join(uci1223_dir,"*.txt.gz")) if "PrNotRecog" 
+    not in f]
+qc_dir = os.path.join("results", "seq_qc")
+uci1223_qc_dir = os.path.join(qc_dir, "uci1223")
+uci1223_fastqc_dir = os.path.join(uci1223_qc_dir, "fastqc")
+uci1223_fastqc_outbase = [
+    os.path.join(uci1223_fastqc_dir,os.path.basename(fq)[:-7]+"_fastqc.{ext}") 
+    for fq in uci1223_seqs]
+uci1223_fastqc_out = expand(uci1223_fastqc_outbase, ext=["html","zip"])
+rule fastqc_uci1223_data:
+    input: uci1223_seqs
+    output: uci1223_fastqc_out
+    resources:
+        time = 60, 
+        mem_mb = 8000
+    threads: 8
+    benchmark: os.path.join("benchmarks", "fastqc_uci1223_data.tsv")
+    shell: "fastqc -o {uci1223_fastqc_dir} -t {threads} {input}"
+uci1223_multiqc_dir = os.path.join(uci1223_qc_dir, "multiqc")
+uci1223_multiqc_report = os.path.join(
+    uci1223_multiqc_dir, 
+    "multiqc_report.html")
+rule multiqc_uci1223_data:
+    input: uci1223_fastqc_out
+    output: uci1223_multiqc_report
+    shell: "multiqc --outdir {uci1223_multiqc_dir} --force {uci1223_fastqc_dir}"
+
+# Run AmpSeQC on May 2022 and UCI 12/23 data
+# AmpSeQC requires a FAI index of the reference genome
+ref_genome_fai = ref_genome + ".fai"
+rule index_ref_samtools:
+    input: ref_genome
+    output: ref_genome_fai
+    shell: "samtools faidx {input}"
+# AmpSeQC requires the targets to be formatted as GFF
+trg_annot = os.path.join(prim_map_dir, "targets.gff")
+rule targets_bed2gff:
+    input: trg_coords_wprimers
+    output: trg_annot
+    run:
+        with open(input[0], 'r') as bed_f:
+            with open(output[0], 'w') as gff_f:
+                gff_f.write("##gff-version 3\n")
+                for line in bed_f:
+                    elements = line.rstrip().split()
+                    chrom = elements[0]
+                    start_pos = str(int(elements[1]) + 1)
+                    end_pos = elements[2]
+                    target = elements[3]
+                    gff_f.write(
+                        '\t'.join([
+                            chrom,
+                            "Pv_GTSeq",
+                            "amplicon",
+                            start_pos,
+                            end_pos,
+                            '.',
+                            '+',
+                            '.',
+                            "ID="+target+'\n']))
+# Path to AmpSeQC script
+ampseqc = "~/AmpSeQC/AmpSeQC.py"
+ampseqc_dir = os.path.join("results", "AmpSeQC")
+ampseqc_seqrun_dir = os.path.join(ampseqc_dir, "{seqrun}")
+read_counts = os.path.join(ampseqc_seqrun_dir, "read_counts.tsv")
+may2022_seqs = glob.glob("resources/seq_data/PV_GTSeq_May2022/*.fastq.gz")
+# Sort list so that READ2 will always follow READ1
+uci1223_seqs.sort()
+seq_dict = {"May2022": may2022_seqs, "UCI1223": uci1223_seqs}
+rule run_ampseqc:
+    input:
+        ref_genome_fai, 
+        targets = trg_annot, 
+        fastqs = lambda wildcards: seq_dict[wildcards.seqrun], 
+        ref = ref_genome
+    params:
+        results_dir = ampseqc_seqrun_dir, 
+        fastq_args = lambda wildcards, input: 
+            "../../../" + " ../../../".join(input.fastqs)
+    # None of the sample-specific outputs are defined here because 
+    # these don't seem to be guaranteed to be produced for every sample
+    output:
+        read_counts = read_counts
+    resources:
+        time = 120, 
+        mem_mb = 8000
+    threads: 2
+    benchmark: os.path.join("benchmarks", "run_ampseqc_{seqrun}.tsv")
+    conda: "ampseqc"
+    shell:
+        # To get AmpSeQC to run properly, I had to add the arguments 
+        # -a AGATCGGAAGAGC -a2 GATCGTCGGACTG to the Trim Galore step. 
+        # These are the first 13 bases of the reverse complements of 
+        # our reverse and forward adapters, respectively. Although this 
+        # behavior does not make sense to me, it appears that Trim 
+        # Galore checks both R1 and R2 for AGATCGGAAGAGC, leading it to 
+        # only trim the R1 reads, leading to a length mismatch between 
+        # R1 and R2, which in turn causes them to be considered 
+        # "improper" pairs and get filtered out by samtools. Manually 
+        # specifying the adapters resolves this issue.
+        """
+        cd {params.results_dir}
+        python {ampseqc} -c ../../../{output.read_counts} -r \
+            ../../../{input.ref} -a ../../../{input.targets} --no_fastqc -p \
+            {threads} {params.fastq_args}
+        """
+# Analyze AmpSeQC results to identify loci that amplified successfully
+loci2filter_dir = os.path.join("results", "loci2filter")
+loci2filter_good_amp = os.path.join(loci2filter_dir, "good_amp.csv")
+rule analyze_ampseqc_results:
+    input:
+        expand(read_counts, seqrun=["May2022","UCI1223"]), 
+        code = os.path.join("workflow", "notebooks", "ampseqc_results.Rmd")
+    output: 
+        multiext(notebooks["ampseqc_results"], ".nb.html", ".pdf", ".md"), 
+        loci2filter_good_amp
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+
+# Filter target set to those present in sequencing runs
 trg_coords_good_amp = os.path.join(
     prim_map_dir, 
     "captured_seq_coords_good_amp.bed")
 rule filter_bed:
-    input: 
+    input:
         inp_bed = trg_coords_noprimers, 
-        targets_keep = trgs2filter_good_amp
+        targets_keep = loci2filter_good_amp
     output: trg_coords_good_amp
     run:
         # Read in list of targets to keep
@@ -399,13 +519,174 @@ rule filter_bed:
             targets_keep = []
             for line in targets_f:
                 targets_keep.append(line.rstrip())
-        # Filter out targets that don't show up well in May 2022 data
+        # Filter out targets not present in sequencing runs
         with open(input.inp_bed, 'r') as inp_bed:
             with open(output[0], 'w') as out_bed:
                 for line in inp_bed:
                     elements = line.rstrip().split()
                     if elements[3] in targets_keep:
                         out_bed.write(line)
+# Extract sequence captured by filtered list of targets
+captured_seq = os.path.join(prim_map_dir, "captured_seq.fasta")
+rule extract_captured_seq:
+    input: 
+        ref_genome_index, 
+        ref = ref_genome, 
+        bed = trg_coords_good_amp
+    output: captured_seq
+    shell: 
+        "bedtools getfasta -fi {input.ref} -bed {input.bed} > {output}"
+rule filter_primers:
+    input:
+        primers = os.path.join("results", "{direc}_primers.fasta"), 
+        targets_keep = loci2filter_good_amp
+    output: os.path.join("results", "{direc}_primers_filtered.fasta")
+    run:
+        # Read in list of targets to keep
+        targets_keep = []
+        with open(input.targets_keep, 'r') as targets_f:
+            for line in targets_f:
+                targets_keep.append(line.rstrip())
+        # Filter FASTA of primers
+        with open(input.primers, 'r') as primers_in:
+            with open(output[0], 'w') as primers_out:
+                keep_target = False
+                for line in primers_in:
+                    if line[0] == '>':
+                        if line[1:].rstrip() in targets_keep:
+                            keep_target = True
+                            primers_out.write(line)
+                    else:
+                        if keep_target:
+                            primers_out.write(line)
+                            keep_target = False
+
+# Preprocess UCI 12/23 data into microhaplotypes
+# Create TSV file listing FASTQs
+ampseq_dir = os.path.join("results", "AmpSeq")
+ampseq_uci1223_dir = os.path.join(ampseq_dir, "uci1223")
+uci1223_fastq_list = os.path.join(ampseq_uci1223_dir, "fastq_list.tsv")
+rule list_uci1223_fastqs:
+    input: uci1223_seqs
+    output: uci1223_fastq_list
+    run:
+        with open(output[0], 'w') as out_f:
+            for fq in input:
+                fq_elements = os.path.basename(fq).split('-')
+                if fq_elements[5] == "READ1":
+                    sample_id = fq_elements[2]
+                    r2_fq = fq.replace('READ1', 'READ2')
+                    out_f.write('\t'.join([sample_id,fq,r2_fq+'\n']))
+fwd_primers_filtered = os.path.join("results", "fwd_primers_filtered.fasta")
+rev_primers_filtered = os.path.join("results", "rev_primers_filtered.fasta")
+ampseq_tool_dir = "~/malaria-amplicon-pipeline"
+uci1223_seqtab = os.path.join(ampseq_uci1223_dir, "run_dada2", "seqtab.tsv")
+uci1223_bimeras = os.path.join(
+    ampseq_uci1223_dir, 
+    "run_dada2", 
+    "ASVBimeras.txt")
+uci1223_reads_summ = os.path.join(
+    ampseq_uci1223_dir, 
+    "run_dada2", 
+    "reads_summary.txt")
+rule run_ampseq_uci1223:
+    input:
+        fastq_list = uci1223_fastq_list, 
+        fwd_primers = fwd_primers_filtered, 
+        rev_primers = rev_primers_filtered
+    output:
+        uci1223_seqtab, 
+        uci1223_bimeras, 
+        uci1223_reads_summ
+    resources:
+        time = 120, 
+        mem_mb = 128000
+    threads: 16
+    benchmark: os.path.join("benchmarks", "run_ampseq_uci1223.tsv")
+    conda: "ampseq"
+    shell:
+        # Due to issues with the argument passing from 
+        # AmpliconPipeline.py to runDADA2.R, it is necessary to specify 
+        # some of the DADA2 parameters even though we are just using 
+        # the pipeline defaults. Also, I think the Neafsey group used a 
+        # trimRight of 2, but I'm not sure because they describe this 
+        # as applying to the 5' end in the documentation of their 
+        # scripts, despite the supplemental methods in Laverriere et 
+        # al. (2022) and the DADA2 documentation suggesting this would 
+        # be the 3' end (as well as common sense - it's called 
+        # trimRight...).
+        #
+        # To get this tool to run properly, I had to add the arguments 
+        # -a AGATCGGAAGAGC -a2 GATCGTCGGACTG to the Trim Galore step. 
+        # These are the first 13 bases of the reverse complements of 
+        # our reverse and forward adapters, respectively. Although this 
+        # behavior does not make sense to me, it appears that Trim 
+        # Galore checks both R1 and R2 for AGATCGGAAGAGC, leading it to 
+        # only trim the R1 reads, leading to a length mismatch between 
+        # R1 and R2, which in turn causes them to be considered 
+        # "improper" pairs and get filtered out by samtools. Manually 
+        # specifying the adapters resolves this issue.
+        "python {ampseq_tool_dir}/AmpliconPipeline.py --path_to_meta "
+        "{input.fastq_list} --pr1 {input.fwd_primers} --pr2 "
+        "{input.rev_primers} --Class parasite --trimRight '2,2' --minLen 30 "
+        "--max_consist 10 --omegaA '1e-120' --justConcatenate 0"
+uci1223_asvtab = os.path.join(ampseq_uci1223_dir, "asvtab.tsv")
+uci1223_asv_fastas = os.path.join(ampseq_uci1223_dir, "ASVSeqs.fasta")
+rule postproc_dada2_uci1223:
+    input:
+        seqtab = uci1223_seqtab, 
+        bimeras = uci1223_bimeras, 
+        ref = captured_seq
+    output:
+        uci1223_asv_fastas, 
+        asvtab = uci1223_asvtab
+    conda: "ampseq"
+    shell:
+        "Rscript {ampseq_tool_dir}/postProc_dada2.R -s {input.seqtab} -ref "
+        "{input.ref} -b {input.bimeras} -o {output.asvtab} --fasta "
+        "--indel_filter 0.895 --strain PvP01"
+asv2cigar_uci1223_dir = os.path.join(ampseq_uci1223_dir, "asv2cigar")
+uci1223_seqtab_cigar = os.path.join(asv2cigar_uci1223_dir, "seqtab_cigar.tsv")
+uci1223_asv2cigar_tab = os.path.join(asv2cigar_uci1223_dir, "asv2cigar_tab.tsv")
+rule asv2cigar_uci1223:
+    input:
+        asv_fastas = uci1223_asv_fastas, 
+        asvtab = uci1223_asvtab, 
+        seqtab = uci1223_seqtab, 
+        ref = captured_seq
+    output:
+        seqtab_cigar = uci1223_seqtab_cigar, 
+        asv2cigar_tab = uci1223_asv2cigar_tab
+    params:
+        alignments_dir = os.path.join(asv2cigar_uci1223_dir, "alignments")
+    conda: "ampseq"
+    shell:
+        "python {ampseq_tool_dir}/ASV_to_CIGAR.py --asv_to_cigar "
+        "{output.asv2cigar_tab} --alignments {params.alignments_dir} --amp_db "
+        "{input.ref} --min_reads 10 --exclude_bimeras --max_snv_dist 50 "
+        "--max_indel_dist 15 {input.asv_fastas} {input.asvtab} {input.seqtab} "
+        "{output.seqtab_cigar}"
+
+# Assess amplicon yield from UCI 12/23 run
+rule assess_microhap_quantity_uci1223:
+    input:
+        uci1223_reads_summ, 
+        uci1223_seqtab_cigar, 
+        code = os.path.join(
+            "workflow", 
+            "notebooks", 
+            "microhap_quantity_uci1223.Rmd")
+    output: 
+        multiext(
+            notebooks["microhap_quantity_uci1223"], 
+            ".nb.html", 
+            ".pdf", 
+            ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
 
 # Get gene symbols and names for panel
 ref_gff_zip = os.path.join("results", "GCA_900093555.2_gff.zip")
@@ -497,25 +778,25 @@ rule rename_chroms:
     shell: 
         "bcftools annotate --rename-chrs {input.chrom_key} -O u -o {output} "
         "{input.vcf}"
-malariagen_filteredbymarker = "Pv4_PvP01_{chrom}_v1_filteredbymarker.bcf"
+malariagen_filteredbylocus = "Pv4_PvP01_{chrom}_v1_filteredbylocus.bcf"
 # Index VCFs or BCFs
 rule index_variant_file:
     input: "{variant_file}"
     output: temp("{variant_file}.csi")
     shell: "bcftools index {input}"
 # Filter to genomic regions of interest
-rule filter_bcf_by_marker:
+rule filter_bcf_by_locus:
     input:
         malariagen_chromrenamed + ".csi", 
         bed = trg_coords_good_amp, 
         vcf = malariagen_chromrenamed
-    output: temp(malariagen_filteredbymarker)
+    output: temp(malariagen_filteredbylocus)
     shell: "bcftools view -R {input.bed} -O u -o {output} {input.vcf}"
 malariagen_prep_dir = os.path.join(malariagen_dir, "preprocessed")
 malariagen_concat = os.path.join(malariagen_prep_dir, "concatenated.vcf.gz")
 # Concatenate data from all chromosomes into one VCF
 rule concat_bcfs:
-    input: expand(malariagen_filteredbymarker, chrom=chromosome_nums)
+    input: expand(malariagen_filteredbylocus, chrom=chromosome_nums)
     output: malariagen_concat
     shell: "bcftools concat -o {output} {input}"
 # Filter out variants that failed the MalariaGEN QC process
@@ -595,7 +876,7 @@ rule apply_variants:
         "> {output}"
 mg_microhap_fasta_dir = os.path.join(mg_microhap_dir, "fasta")
 hapseq = os.path.join(mg_microhap_fasta_dir, "{samp}_hapseq.fa")
-# Filter to the targets of interest
+# Filter to the loci of interest
 rule filter2hapseq:
     input: 
         fasta = ref_w_variants, 
@@ -616,7 +897,7 @@ rule tidy_microhap:
         code = os.path.join("workflow", "scripts", "tidy_microhap.R")
     output: 
         # Unfortunately there is no good alternative to specifying the 
-        # alignment FASTAs as a directory. The target list depends on 
+        # alignment FASTAs as a directory. The loci list depends on 
         # assess_marker_performance, and so cannot be expanded in 
         # advance, and I'm not aware of a way to tell Snakemake that 
         # one execution of a rule can create multiple wildcard outputs.
@@ -713,14 +994,14 @@ rule alignment2popbin:
     shell:
         "Rscript {input.code} --alignments {input.mh_aligned} --mh_csv "
         "{input.mh_csv} --out {output}"
-trgs2filter_selec = os.path.join(trgs2filter_dir, "selec.csv")
+loci2filter_selec = os.path.join(loci2filter_dir, "selec.csv")
 rule assess_selection:
     input:
         mh_popbin, 
         code = os.path.join("workflow", "notebooks", "selection.Rmd")
     output:
         multiext(notebooks["selection"], ".nb.html", ".pdf", ".md"), 
-        trgs2filter_selec
+        loci2filter_selec
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -734,14 +1015,14 @@ mg_microhap_filtered4popgen = os.path.join(
 rule filter4popgen:
     input:
         mh_in = mg_microhap_w_hap_ids, 
-        trgs2filter = trgs2filter_selec, 
+        loci2filter = loci2filter_selec, 
         code = os.path.join("workflow", "scripts", "filter4popgen.R")
     output: mg_microhap_filtered4popgen
     shell:
-        "Rscript {input.code} --mh_in {input.mh_in} --trgs2filter "
-        "{input.trgs2filter} --mh_out {output}"
+        "Rscript {input.code} --mh_in {input.mh_in} --loci2filter "
+        "{input.loci2filter} --mh_out {output}"
 
-# Marker and sample diversity
+# Locus and sample diversity
 mg_microhap_filtered4popgen_gd = os.path.join(
     mg_microhap_dir, 
     "mg_microhap_filtered4popgen_gd.rds")
@@ -799,16 +1080,16 @@ rule analyze_relatedness:
         """
 
 # Make figures
-rule plot_panel_marker_metrics:
+rule plot_panel_target_metrics:
     input:
         window_stats = os.path.join("resources", "filtered_windows_tab.txt"), 
-        targets = trgs2filter_good_amp, 
+        targets = loci2filter_good_amp, 
         code = os.path.join(
             "workflow", 
             "scripts", 
-            "panel_marker_metrics_plot.R")
+            "panel_target_metrics_plot.R")
     output: 
-        multiext(os.path.join(figdir,figs["panel_marker_metrics"]), 
+        multiext(os.path.join(figdir,figs["panel_target_metrics"]), 
             ".pdf", 
             ".png")
     params:
@@ -837,23 +1118,23 @@ rule plot_otreads_by_protocol:
         "Rscript {input.code} --readcounts_metadata "
         "{input.readcounts_metadata} --total_read_counts "
         "{input.total_readcounts} --out_base {params.basename}"
-rule plot_marker_reads_by_protocol:
+rule plot_locus_reads_by_protocol:
     input:
         readcounts_metadata = may2022_readcounts_metadata, 
-        selected_trgs = trgs2filter_good_amp, 
+        selected_loci = loci2filter_good_amp, 
         code = os.path.join(
             "workflow", 
             "scripts", 
-            "marker_reads_by_protocol_boxplots.R")
+            "locus_reads_by_protocol_boxplots.R")
     output: 
-        multiext(os.path.join(figdir,figs["marker_reads_by_protocol"]), 
+        multiext(os.path.join(figdir,figs["locus_reads_by_protocol"]), 
             ".pdf", 
             ".png")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
         "Rscript {input.code} --readcounts_metadata "
-        "{input.readcounts_metadata} --selected_trgs {input.selected_trgs} "
+        "{input.readcounts_metadata} --selected_loci {input.selected_loci} "
         "--out_base {params.basename}"
 rule plot_otreads_vs_density:
     input:
@@ -873,18 +1154,18 @@ rule plot_otreads_vs_density:
         "Rscript {input.code} --readcounts_metadata "
         "{input.readcounts_metadata} --total_read_counts "
         "{input.total_readcounts} --out_base {params.basename}"
-rule plot_reads_by_marker:
+rule plot_reads_by_locus:
     input:
         readcounts_metadata = may2022_readcounts_metadata, 
-        selected_trgs = trgs2filter_good_amp, 
-        code = os.path.join("workflow", "scripts", "reads_by_marker_barplots.R")
+        selected_loci = loci2filter_good_amp, 
+        code = os.path.join("workflow", "scripts", "reads_by_locus_barplots.R")
     output: 
-        multiext(os.path.join(figdir,figs["reads_by_marker"]), ".pdf", ".png")
+        multiext(os.path.join(figdir,figs["reads_by_locus"]), ".pdf", ".png")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
         "Rscript {input.code} --readcounts_metadata "
-        "{input.readcounts_metadata} --selected_trgs {input.selected_trgs} "
+        "{input.readcounts_metadata} --selected_loci {input.selected_loci} "
         "--out_base {params.basename}"
 rule plot_mean_het_by_pop:
     input:

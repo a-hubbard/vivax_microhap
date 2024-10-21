@@ -15,7 +15,7 @@ read_count_heatmap <- function(reads,
                                theme_tweaks = NULL) {
   ggplot(
       data = reads, 
-      mapping = aes(x = target, y = sample_id, fill = n_read)
+      mapping = aes(x = locus, y = sample_id, fill = n_read)
     ) +
     geom_tile() +
     facet_wrap(vars(treatment_source), ncol = 1) +
@@ -89,13 +89,13 @@ mh_combined %>%
 ``` r
 # Calculate total reads ------------------------------------------------
 total_reads <- mh_combined %>%
-  rename(target = Primer, sample_id = SID) %>%
+  rename(locus = Primer, sample_id = SID) %>%
   unite(treatment_source, Treatment, Source) %>%
-  group_by(target, sample_id, treatment_source) %>%
+  group_by(locus, sample_id, treatment_source) %>%
   summarize(n_read = sum(Reads), .groups = "drop") %>%
-  complete(target, sample_id, treatment_source, fill = list(n_read = 0))
+  complete(locus, sample_id, treatment_source, fill = list(n_read = 0))
 
-# Plot read counts for each sample/target for the DBS treatments -------
+# Plot read counts for each sample/locus for the DBS treatments --------
 whole_blood_samples <- mh_combined %>%
   filter(str_detect(Source, "Whole blood")) %$%
   unique(SID)
@@ -109,11 +109,11 @@ total_reads %>%
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/marker_performance_files/figure-gfm/unnamed-chunk-1-1.png" width="100%" />
 
-These heatmaps show the total reads obtained for each sample/target
+These heatmaps show the total reads obtained for each sample/locus
 combination for all of the DBS treatments.
 
 ``` r
-# Plot read counts for each sample/target for whole blood trials -------
+# Plot read counts for each sample/locus for whole blood trials --------
 total_reads %>%
   filter(
     sample_id %in% whole_blood_samples, 
@@ -126,48 +126,3 @@ total_reads %>%
 
 These heatmaps show the same thing, except for the library prep methods
 that utilized whole blood.
-
-The point of this analysis is to identify any markers that consistently
-don’t amplify and should not be included in the MalariaGEN analyses.
-These plots indicate three markers that consistently yield poor results.
-A marker set without these problematic markers is created for use in
-subsequent analyses.
-
-``` r
-# Filter targets to analysis set and save ------------------------------
-targets <- total_reads %>%
-  select(target) %>%
-  distinct() %>%
-  filter(
-    ! target %in% c(
-      "PvP01_07_v1_500001_500200", 
-      "PvP01_14_v1_1887501_1887700", 
-      "PvP01_14_v1_2759601_2759800"
-    )
-  )
-targets %>%
-  write_csv(out$filtered_trgs)
-selected_windows <- targets %>%
-  filter(str_detect(target, "PvP01"))
-other_targets <- targets %>%
-  filter(! str_detect(target, "PvP01"))
-```
-
-The final set of markers consists of 76 selected genome windows, plus 8
-other targets of interest. These additional targets are:
-
-``` r
-other_targets
-```
-
-    ## # A tibble: 8 × 1
-    ##   target                
-    ##   <chr>                 
-    ## 1 pvcrt_o.10k.indel     
-    ## 2 pvdbp.503             
-    ## 3 pvdhfr.57FLI.58SR.61TM
-    ## 4 pvdhps.382AG.383AG    
-    ## 5 pvdhps.553AG          
-    ## 6 pvk12.124MI.151QK     
-    ## 7 pvk12.596KR           
-    ## 8 pvmdr1.1076FL

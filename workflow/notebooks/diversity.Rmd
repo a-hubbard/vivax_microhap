@@ -1,5 +1,5 @@
 ---
-title: Marker and Sample Diversity
+title: Locus and Sample Diversity
 author: Alfred Hubbard
 output:
   html_notebook: default
@@ -34,9 +34,9 @@ inp <- list(
 )
 ```
 
-# Marker Diversity
+# Locus Diversity
 
-Nucleotide diversity was computed for each marker with `pegas::nuc.div()`. Since
+Nucleotide diversity was computed for each locus with `pegas::nuc.div()`. Since
 this was done with pegas `haplotype` objects, the frequencies of each haplotype
 were used to perform this calculation.
 
@@ -46,7 +46,7 @@ treated as having a Hamming distance of 0 from nucleotides included in that
 ambiguity. Even so, sometimes it is not possible to assign a sequence with an 
 ambiguity at a given position to other haplotypes that lack ambiguities at that 
 position. In this scenario, pegas assigns this sequence to a new haplotype. That 
-means that there tend to be a few low frequency haplotypes for each marker that 
+means that there tend to be a few low frequency haplotypes for each locus that 
 were assigned this way because of ambiguities, and would be merged with one of 
 the other haplotypes if the ambiguity could be resolved.
 
@@ -67,20 +67,20 @@ nuc_div_res <- read_rds(inp$mh_hap) %>%
   mutate(nuc_div = map_dbl(hap, pegas::nuc.div, pairwise.deletion = TRUE)) %>%
   select(-hap)
 nuc_div_res %>%
-  ggplot(mapping = aes(x = target, y = nuc_div)) +
+  ggplot(mapping = aes(x = locus, y = nuc_div)) +
   geom_col() +
-  labs(x = "Target", y = "Nucleotide Diversity") +
+  labs(x = "Locus", y = "Nucleotide Diversity") +
   theme(axis.text.x = element_text(angle = 90, hjust = 1))
 ```
 
-This bar plot shows the nucleotide diversity for each marker. There is
-considerable variability in the diversity of these markers, and a number don't
+This bar plot shows the nucleotide diversity for each locus There is
+considerable variability in the diversity of these loci, and a number don't
 have any segregating sites, leading to a diversity of 0.
 
 # Genotype Accumulation Curve
 
 A genotype accumulation curve was calculated to assess whether there are
-sufficient markers in the dataset to distinguish individual samples.
+sufficient loci in the dataset to distinguish individual samples.
 
 First, loci with only one allele were filtered out of the dataset:
 
@@ -95,14 +95,14 @@ Then the curve was plotted:
 poppr::genotype_curve(mh_data_gd, sample = 1000, quiet = TRUE)
 ```
 
-From this figure, it is apparent that there are plenty of markers in the dataset
+From this figure, it is apparent that there are plenty of loci in the dataset
 to distinguish different samples, even once loci with only one allele were
-removed. In fact, it appears that only about 15 markers would be sufficient for
+removed. In fact, it appears that only about 15 loci would be sufficient for
 this purpose.
 
 # Sample Diversity
 
-To complement marker diversity, sample-level diversity was also estimated with
+To complement locus diversity, sample-level diversity was also estimated with
 Nei's expected heterozygosity and evenness was calculated with the $E_5$ 
 statistic. Two population strata were used for the entire dataset: populations 
 as defined by the MalariaGEN project ("Population") and countries. In addition, 

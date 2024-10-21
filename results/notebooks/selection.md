@@ -1,9 +1,9 @@
-Test for Selective Pressure on each Marker
+Test for Selective Pressure on each Locus
 ================
 Alfred Hubbard
 
 The Tajima test was used to look for an impact of natural selection on
-the markers selected for this panel. Tajima exploited the fact that two
+the loci selected for this panel. Tajima exploited the fact that two
 metrics of genetic diversity, the number of segregating sites and the
 average number of pairwise nucleotide differences, differ in their
 response to selection to create a test for selection based on the
@@ -46,14 +46,14 @@ selec_res <- mh_popbin %>%
 
 # Analyze warnings -----------------------------------------------------
 selec_res %>%
-  select(target, selec_warn) %>%
+  select(locus, selec_warn) %>%
   unnest(selec_warn) %$%
   unique(selec_warn)
 ```
 
     ## [1] "no segregating sites"
 
-This warning is expected for some of the target/population combinations,
+This warning is expected for some of the locus/population combinations,
 and is not cause for concern.
 
 The distribution of *p*-values obtained for these tests is given below.
@@ -100,7 +100,7 @@ bf_thres <- 0.05 / nrow(selec_res)
 bf_thres
 ```
 
-    ## [1] 0.0001628664
+    ## [1] 0.000154321
 
 ``` r
 selec_res_signif <- selec_res %>%
@@ -110,13 +110,13 @@ selec_res_signif %>%
 ```
 
     ## # A tibble: 3 × 4
-    ##   target                      pop_id taj_d        pval
+    ##   locus                       pop_id taj_d        pval
     ##   <chr>                       <chr>  <dbl>       <dbl>
     ## 1 pvcrt_o.10k.indel           WAS    -2.90 0          
     ## 2 pvcrt_o.10k.indel           ESEA   -3.14 0          
     ## 3 PvP01_10_v1_1072001_1072200 WAS    -2.56 0.000000115
 
-The table above shows the target/population combinations that yielded a
+The table above shows the locus/population combinations that yielded a
 significant result at this corrected threshold. These results suggest
 that pvcrt_o.10k.indel may be under selective pressure in the WAS and
 ESEA populations, and PvP01_10_v1_1072001_1072200 may be under selective
@@ -124,9 +124,9 @@ pressure in the WAS population. These loci will be removed for
 downstream population genetic analyses that assume neutral markers.
 
 ``` r
-# Save list of targets to filter ---------------------------------------
+# Save list of loci to filter ---------------------------------------
 selec_res_signif %>%
-  select(target) %>%
+  select(locus) %>%
   distinct() %>%
-  write_csv(out$trgs2filter)
+  write_csv(out$loci2filter)
 ```
