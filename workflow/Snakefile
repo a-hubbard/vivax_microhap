@@ -122,6 +122,9 @@ fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 # Documents
 figs_tables_doc = os.path.join("results", "all_figs_tables.pdf")
 figs_tables_doc_flag = os.path.join(".flags", "push_figs_tables_doc")
+supp_text_dir = os.path.join("results", "supp_texts")
+supp_texts = {"may2022": "supptext1"}
+supp_text_flag_template = os.path.join(".flags", "push_supptext_{supptext}")
 # Other outputs
 locus_metadata = os.path.join("results", "locus_metadata.tsv")
 microhap_dir = os.path.join("results", "microhap")
@@ -134,6 +137,7 @@ rule all:
         expand(os.path.join(figdir,"{fig}.png"), fig=list(figs.values())), 
         expand(fig_flag_template, fig=list(figs.values())), 
         figs_tables_doc_flag, 
+        expand(supp_text_flag_template, supptext=list(supp_texts.values())), 
         locus_metadata, 
         mg_microhap_aligned_fasta_dir
 # For others attempting to run the pipeline on their own machine
@@ -145,8 +149,11 @@ rule replicate:
             ext=["nb.html","pdf","md"]), 
         expand(
             os.path.join(figdir,"{fig}.{ext}"), 
-            fig=figs, 
+            fig=list(figs.values()), 
             ext=["png","pdf"]), 
+        expand(
+            os.path.join(supp_text_dir,"{supptext}.pdf"), 
+            supptext=list(supp_texts.values())), 
         figs_tables_doc, 
         locus_metadata
 
@@ -561,6 +568,44 @@ rule filter_primers:
                             primers_out.write(line)
                             keep_target = False
 
+# Get gene symbols and names for panel
+ref_gff_zip = os.path.join("results", "GCA_900093555.2_gff.zip")
+rule dwnld_ref_gff:
+    output: temp(ref_gff_zip)
+    shell: 
+        "datasets download genome accession GCA_900093555.2 --include gff3 "
+        "--filename {output}"
+ref_gff_dir = os.path.join("results", "ref_gff")
+ref_gff = os.path.join(ref_gff_dir, "GCA_900093555.2", "genomic.gff")
+rule unzip_ref_gff:
+    input: ref_gff_zip
+    output: 
+        ref_gff, 
+        os.path.join(ref_gff_dir, "README.md"), 
+        os.path.join(ref_gff_dir, "assembly_data_report.jsonl"), 
+        os.path.join(ref_gff_dir, "dataset_catalog.json")
+    shell:
+        """
+        unzip {input} -d {ref_gff_dir}
+        mv {ref_gff_dir}/ncbi_dataset/data/* {ref_gff_dir}/
+        rm -r {ref_gff_dir}/ncbi_dataset
+        """
+panel_annot = os.path.join("results", "panel_annot.tsv")
+rule subset_annot:
+    input:
+        ref_gff = ref_gff, 
+        panel_bed = trg_coords_good_amp
+    output: panel_annot
+    shell: 
+        "bedtools intersect -a {input.panel_bed} -b {input.ref_gff} -loj > "
+        "{output}"
+rule refmt_annot:
+    input:
+        panel_annot = panel_annot, 
+        code = os.path.join("workflow", "scripts", "fmt_locus_metadata.R")
+    output: locus_metadata
+    shell: "Rscript {input.code} --annot {input.panel_annot} --out {output}"
+
 # Preprocess UCI 12/23 data into microhaplotypes
 # Create TSV file listing FASTQs
 ampseq_dir = os.path.join("results", "AmpSeq")
@@ -668,10 +713,15 @@ rule asv2cigar_uci1223:
         "{output.seqtab_cigar}"
 
 # Assess amplicon yield from UCI 12/23 run
+uci1223_rep_metadata = os.path.join(
+    "resources", 
+    "MH_template__LB_EHS_dz07242024_to_liz.xlsx")
 rule assess_microhap_quantity_uci1223:
     input:
         uci1223_reads_summ, 
         uci1223_seqtab_cigar, 
+        locus_metadata, 
+        uci1223_rep_metadata, 
         code = os.path.join(
             "workflow", 
             "notebooks", 
@@ -687,44 +737,6 @@ rule assess_microhap_quantity_uci1223:
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
         """
-
-# Get gene symbols and names for panel
-ref_gff_zip = os.path.join("results", "GCA_900093555.2_gff.zip")
-rule dwnld_ref_gff:
-    output: temp(ref_gff_zip)
-    shell: 
-        "datasets download genome accession GCA_900093555.2 --include gff3 "
-        "--filename {output}"
-ref_gff_dir = os.path.join("results", "ref_gff")
-ref_gff = os.path.join(ref_gff_dir, "GCA_900093555.2", "genomic.gff")
-rule unzip_ref_gff:
-    input: ref_gff_zip
-    output: 
-        ref_gff, 
-        os.path.join(ref_gff_dir, "README.md"), 
-        os.path.join(ref_gff_dir, "assembly_data_report.jsonl"), 
-        os.path.join(ref_gff_dir, "dataset_catalog.json")
-    shell:
-        """
-        unzip {input} -d {ref_gff_dir}
-        mv {ref_gff_dir}/ncbi_dataset/data/* {ref_gff_dir}/
-        rm -r {ref_gff_dir}/ncbi_dataset
-        """
-panel_annot = os.path.join("results", "panel_annot.tsv")
-rule subset_annot:
-    input:
-        ref_gff = ref_gff, 
-        panel_bed = trg_coords_good_amp
-    output: panel_annot
-    shell: 
-        "bedtools intersect -a {input.panel_bed} -b {input.ref_gff} -loj > "
-        "{output}"
-rule refmt_annot:
-    input:
-        panel_annot = panel_annot, 
-        code = os.path.join("workflow", "scripts", "fmt_locus_metadata.R")
-    output: locus_metadata
-    shell: "Rscript {input.code} --annot {input.panel_annot} --out {output}"
 
 # Download MalariaGEN data
 malariagen_dir = os.path.join("results", "MalariaGEN")
@@ -1246,6 +1258,11 @@ rule push_figs_tables_doc:
     output: touch(figs_tables_doc_flag)
     priority: -1
     shell: "rclone copy {input} {cloud_dir} --drive-shared-with-me"
+rule push_supp_texts:
+    input: os.path.join(supp_text_dir, "{supptext}.pdf")
+    output: touch(supp_text_flag_template)
+    priority: -1
+    shell: "rclone copy {input} {cloud_dir}/supp_texts --drive-shared-with-me"
 
 # Delete all outputs in preparation for rerunning pipeline from nothing
 rule clean:

@@ -1,0 +1,71 @@
+---
+title: Plasmodium vivax Microhaplotype Panel Design and Validation
+subtitle: "Supplemental Text 1: Small Batch Testing to Optimize Protocol"
+output:
+  pdf_document: default
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(knitr)
+library(magrittr)
+library(tidyverse)
+
+# Set default chunk parameters
+opts_chunk$set(echo = FALSE, fig.align = "center", out.width = "100%")
+```
+
+# Sample collection
+
+To evaluate the panel in terms of sequencing yield and ability to obtain 
+haplotypes, we used six samples previously collected as part of an ongoing 
+Sub-Saharan Africa International Center for Excellence for Malaria Research 
+(ICEMR) project. Some of these samples were obtained with passive case detection 
+and some came from mass blood surveys. The samples were collected from three 
+ongoing field sites in the Oromo region of Southwest Ethiopia; the Arjo-Didessa 
+sugarcane farm, the Gambella region, and Jimma town.
+
+In addition, four whole blood samples collected from Agaro Health Center, which 
+is near Jimma, Ethiopia, were used to evaluate panel performance with DNA 
+extracts derived from whole blood.
+
+# Library preparation
+
+For DBS samples, two different extraction methods were tested: the Qiagen QIAamp 
+DNA Investigator Kit (from now on referred to as the "kit") and the 
+Saponin/Chelex method (Bereczky et al., 2005). In addition, for all samples, 
+three different enrichment strategies were tested: no enrichment, a targeted 
+nested PCR prior to the GT-Seq PCR (from here forward referred to as targeted 
+pre-amplification), and selective whole genome amplification (SWGA) prior to the 
+first PCR in the GT-Seq protocol.
+
+When SWGA was used, we performed the reaction and bead cleanup according to the 
+established protocol (Cowell et al., 2017), prior to the GT-Seq PCR. When 
+targeted pre-amplification was performed, nested reaction mixtures and 
+amplification were conducted following the same conditions as PCR 1 of the 
+GT-Seq protocol, prior to the GT-Seq PCR. Following enrichment, the protocol 
+consists of an initial PCR with primers for amplicon targets containing adapter 
+sequences, an enzymatic cleanup of PCR products, a second PCR for normalization 
+and incorporation of dual indexing tags (Nate’s plates), and bead size 
+selection. Libraries were sequenced on an Illumina Miseq with a 500 cycle kit in 
+paired-end mode.
+
+# Sequence analysis
+
+We used the SeekDeep pipeline (Hathaway et al., 2018) to demultiplex, filter 
+reads, and estimate haplotype frequencies. First, to join and extract reads by 
+locus, we used the extractorPairedEnd function with default filtering and 
+quality parameters and additional primer specifications (minOverlap: 6, 
+primercoverage: 0.7, primerWithinStart: 20). Next, the qluster function with 
+default parameters for Illumina data was used to create haplotypes with relative 
+abundances. Final filtering was done using the processsClusters function with 
+parameters that allow for a few low-quality mismatches and no indels, 
+recommended by the developer for Illumina data (parameters: strictErrors, 
+illumina, fracCutOff 0.02).
+
+To evaluate the different laboratory protocols, the percentage of on-target 
+reads was calculated by dividing the total number of reads that were matched to 
+panel loci by SeekDeep for each sample by the total number of reads for that 
+sample in the raw data.
