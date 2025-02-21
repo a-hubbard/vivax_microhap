@@ -78,6 +78,19 @@ variant_read_counts <- read_tsv(
   separate_wider_delim(locus_cigar, ",", names = c("locus_pos", "cigar")) %>%
   rename(rep_id = sample)
 
+# Check for implicit missing data --------------------------------------
+n_loci_by_rep <- variant_read_counts %>%
+  group_by(rep_id) %>%
+  summarize(n_loci = n_distinct(locus_pos), .groups = "drop")
+reps_wo_all_loci <- n_loci_by_rep %>%
+  filter(n_loci < n_distinct(variant_read_counts$locus_pos))
+if (nrow(reps_wo_all_loci) > 0) {
+  stop(
+    "Not all replicates have entries for all loci in AmpSeq output", 
+    call. = FALSE
+  )
+}
+
 # Read and join locus names --------------------------------------------
 locus_metadata <- read_tsv(
     inp$locus_metadata, 
@@ -115,7 +128,7 @@ rep_metadata <- read_xlsx(
     sample_id = MH_DNA_Well, 
     ct = `Ct...21`
   ) %>%
-  mutate(ct = replace_na(ct, "No Ct")) %>%
+  mutate(ct = na_if(ct, "No Ct")) %>%
   mutate(ct = as.numeric(ct))
 # Make sure each sample ID has one and only one Ct value
 sample_ct_values <- rep_metadata %>%
