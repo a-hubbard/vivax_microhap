@@ -64,7 +64,7 @@ variant_read_counts <- variant_read_counts %>%
   left_join(locus_metadata, by = "locus_pos") %>%
   select(-locus_pos)
 
-# Read and join replicate metadata -------------------------------------
+# Read replicate metadata ----------------------------------------------
 rep_metadata <- read_xlsx(
     inp$rep_metadata, 
     sheet = "pv242"
@@ -256,7 +256,7 @@ sample_total_read_counts %>%
 
     ## `geom_smooth()` using formula = 'y ~ x'
 
-<img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-4-1.png" width="100%" />
+![](/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
 
 This scatterplot shows the relationship between parasitemia and total
 read count obtained for each sample.

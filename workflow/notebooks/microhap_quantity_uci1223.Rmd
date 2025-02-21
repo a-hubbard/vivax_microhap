@@ -17,7 +17,7 @@ library(readxl)
 library(tidyverse)
 
 # Don't include code in PDF output
-opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+opts_chunk$set(echo = ! is_latex_output())
 # Set default ggplot2 theme
 theme_set(theme_bw())
 
@@ -39,7 +39,7 @@ out <- list(read_counts = "../../results/AmpSeq/uci1223/read_counts.csv")
 
 ### By Replicate
 
-```{r fig.width = 15, fig.height = 17, message = FALSE}
+```{r fig.width = 15, fig.height = 17, message = FALSE, out.width = "100%"}
 read_count_heatmap_byrep <- function(reads, loi) {
   lib_reads <- reads %>%
     filter(lib_name == loi)
@@ -95,7 +95,7 @@ variant_read_counts <- variant_read_counts %>%
   left_join(locus_metadata, by = "locus_pos") %>%
   select(-locus_pos)
 
-# Read and join replicate metadata -------------------------------------
+# Read replicate metadata ----------------------------------------------
 rep_metadata <- read_xlsx(
     inp$rep_metadata, 
     sheet = "pv242"
@@ -153,7 +153,7 @@ Duffy positive individuals, which is presumably related to parasitemia.
 
 ### Sample Means
 
-```{r fig.width = 15, fig.height = 11}
+```{r fig.width = 15, fig.height = 11, out.width = "100%"}
 read_count_heatmap_bysample <- function(reads, loi) {
   reads %>%
     filter(lib_name == loi) %>%

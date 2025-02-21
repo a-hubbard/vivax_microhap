@@ -49,6 +49,7 @@ localrules:
     postproc_dada2_uci1223, 
     asv2cigar_uci1223, 
     assess_microhap_quantity_uci1223, 
+    tidy_microhap_uci1223, 
     dwnld_ref_gff, 
     unzip_ref_gff, 
     subset_annot, 
@@ -96,6 +97,7 @@ notebook_basenames = [
     "marker_performance", 
     "ampseqc_results", 
     "microhap_quantity_uci1223", 
+    "tidy_microhap_uci1223", 
     "sample_properties", 
     "diversity", 
     "ld", 
@@ -734,6 +736,28 @@ rule assess_microhap_quantity_uci1223:
             ".nb.html", 
             ".pdf", 
             ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+uci1223_microhap_dir = os.path.join(microhap_dir, "uci1223")
+mh_uci1223 = os.path.join(uci1223_microhap_dir, "uci1223_microhap.tsv")
+rule tidy_microhap_uci1223:
+    input:
+        uci1223_seqtab_cigar, 
+        locus_metadata, 
+        code = os.path.join(
+            "workflow", 
+            "notebooks", 
+            "tidy_microhap_uci1223.Rmd")
+    output: 
+        multiext(
+            notebooks["tidy_microhap_uci1223"], 
+            ".nb.html", 
+            ".pdf", 
+            ".md"), 
+        mh_uci1223
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
