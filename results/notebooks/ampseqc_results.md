@@ -21,7 +21,7 @@ plot_failed_reads <- function(read_counts) {
     ggplot(mapping = aes(x = n_read)) +
     geom_histogram(bins = 30) +
     facet_wrap(vars(reason)) +
-    labs(x = "No. of Reads", y = "No. of Samples")
+    labs(x = "No. of Reads", y = "No. of Replicates")
 }
 
 # Read in read counts --------------------------------------------------
@@ -47,7 +47,7 @@ plot_failed_reads(may2022_read_counts)
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/ampseqc_results_files/figure-gfm/unnamed-chunk-1-1.png" width="100%" />
 
-These histograms show the number of samples with a certain number of
+These histograms show the number of replicates with a certain number of
 reads that failed for each reason identified by AmpSeQC. There are quite
 a few reads that failed because of the “no_feature” condition, which,
 according to the `htseq-count` documentation, means that they aligned to
@@ -92,13 +92,13 @@ may2022_read_counts_byloc %>%
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/ampseqc_results_files/figure-gfm/unnamed-chunk-2-1.png" width="100%" />
 
-This heatmap shows the number of reads identified for each locus/sample
-combination. It is expected that some loci will have no reads, as the
-primer set used for this run was reduced relative to the original panel
-design. As for the remaining loci, read counts vary to a substantial
-extent by replicate, but this is also expected to some extent because
-several different library prep protocols are represented in this figure.
-These are compared elsewhere.
+This heatmap shows the number of reads identified for each
+locus/replicate combination. It is expected that some loci will have no
+reads, as the primer set used for this run was reduced relative to the
+original panel design. As for the remaining loci, read counts vary to a
+substantial extent by replicate, but this is also expected to some
+extent because several different library prep protocols are represented
+in this figure. These are compared elsewhere.
 
 ## UCI 12/23
 
@@ -126,7 +126,7 @@ plot_failed_reads(uci1223_read_counts)
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/ampseqc_results_files/figure-gfm/unnamed-chunk-3-1.png" width="100%" />
 
-These histograms show the number of samples with a certain number of
+These histograms show the number of replicates with a certain number of
 reads that failed for each reason identified by AmpSeQC. For all of the
 failure conditions, the read counts are at or near 0, indicating no
 cause for concern. Because the “no_feature” category is essentially
@@ -150,11 +150,11 @@ uci1223_read_counts_byloc %>%
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/ampseqc_results_files/figure-gfm/unnamed-chunk-4-1.png" width="100%" />
 
-This heatmap shows the number of reads identified for each locus/sample
-combination. As above, some loci are expected to lack data because
-primers were not included for those loci. Of the remaining loci, we
-obtained adequate read counts for many replicates, but for many other
-replicates we obtained almost nothing.
+This heatmap shows the number of reads identified for each
+locus/replicate combination. As above, some loci are expected to lack
+data because primers were not included for those loci. Of the remaining
+loci, we obtained adequate read counts for many replicates, but for many
+other replicates we obtained almost nothing.
 
 # Selected Loci
 

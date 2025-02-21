@@ -13,6 +13,7 @@ output:
 # are loaded second to avoid masking
 library(knitr)
 library(magrittr)
+library(readxl)
 library(tidyverse)
 
 # Don't include code in PDF output
@@ -25,7 +26,9 @@ theme_set(theme_bw())
 # meant to be usable with other projects.
 inp <- list(
   reads_summary = "../../results/AmpSeq/uci1223/run_dada2/reads_summary.txt", 
-  cigar_table = "../../results/AmpSeq/uci1223/asv2cigar/seqtab_cigar.tsv"
+  cigar_table = "../../results/AmpSeq/uci1223/asv2cigar/seqtab_cigar.tsv", 
+  locus_metadata = "../../results/locus_metadata.tsv", 
+  rep_metadata = "../../resources/MH_template__LB_EHS_dz07242024_to_liz.xlsx"
 )
 out <- list(read_counts = "../../results/AmpSeq/uci1223/read_counts.csv")
 ```
@@ -34,16 +37,30 @@ out <- list(read_counts = "../../results/AmpSeq/uci1223/read_counts.csv")
 
 ## Reads
 
-```{r fig.width = 15, fig.height = 35}
-read_count_heatmap <- function(reads) {
-  ggplot(data = reads, mapping = aes(x = locus, y = sample, fill = n_read)) +
+### By Replicate
+
+```{r fig.width = 15, fig.height = 17, message = FALSE}
+read_count_heatmap_byrep <- function(reads, loi) {
+  lib_reads <- reads %>%
+    filter(lib_name == loi)
+  samples_reps <- lib_reads %>%
+    distinct(sample_id, rep_id) %>%
+    arrange(sample_id)
+  lib_reads %>%
+    arrange(sample_id) %>%
+    # Make rep_id a factor with ordering corresponding to samples_reps
+    mutate(rep_id = factor(rep_id, samples_reps$rep_id, ordered = TRUE)) %>%
+    ggplot(mapping = aes(x = locus, y = rep_id, fill = n_read)) +
     geom_tile() +
+    # Use sample IDs from samples_reps as y-axis labels to show which 
+    # replicates came from the same sample
+    scale_y_discrete(label = samples_reps$sample_id) +
     scale_fill_fermenter(
       palette = "YlGnBu", 
       name = "Reads", 
       breaks = c(10, 100, 1000, 2000)
     ) +
-    labs(x = "Locus", y = "Replicate") +
+    labs(x = "Locus", y = "Replicate", title = loi) +
     theme(
       axis.text.x = element_text(angle = 60, hjust = 1), 
       legend.position = "bottom", 
@@ -52,58 +69,154 @@ read_count_heatmap <- function(reads) {
 }
 
 # Read in final, filtered data -----------------------------------------
-final_data <- read_tsv(
+variant_read_counts <- read_tsv(
     inp$cigar_table, 
     col_types = cols(.default = col_integer(), sample = col_character()), 
     progress = FALSE
   ) %>%
   pivot_longer(-sample, names_to = "locus_cigar", values_to = "n_read") %>%
-  separate_wider_delim(locus_cigar, ",", names = c("locus", "cigar"))
+  separate_wider_delim(locus_cigar, ",", names = c("locus_pos", "cigar")) %>%
+  rename(rep_id = sample)
 
-# Plot reads by sample and locus ---------------------------------------
-final_reads <- final_data %>%
-  group_by(sample, locus) %>%
-  summarize(n_read = sum(n_read), .groups = "drop")
-# Save for publication figures
-final_reads %>%
-  write_csv(out$read_counts)
-final_reads %>%
-  # filter(! str_detect(sample, "Control")) %>%
-  read_count_heatmap()
+# Read and join locus names --------------------------------------------
+locus_metadata <- read_tsv(
+    inp$locus_metadata, 
+    col_types = cols(
+      .default = col_character(), 
+      start_pos = col_integer(), 
+      end_pos = col_integer()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(locus, chrom, start_pos, end_pos) %>%
+  unite(start_end, start_pos, end_pos, sep = "-") %>%
+  unite(locus_pos, chrom, start_end, sep = ":")
+variant_read_counts <- variant_read_counts %>%
+  left_join(locus_metadata, by = "locus_pos") %>%
+  select(-locus_pos)
+
+# Read and join replicate metadata -------------------------------------
+rep_metadata <- read_xlsx(
+    inp$rep_metadata, 
+    sheet = "pv242"
+  ) %>%
+  select(
+    SampleID, 
+    `library name`, 
+    MH_DNA_Well, 
+    DARC_Phenotype, 
+    Site, 
+    Method, 
+    `Ct...21`
+  ) %>%
+  rename(
+    rep_id = SampleID, 
+    lib_name = `library name`, 
+    sample_id = MH_DNA_Well, 
+    ct = `Ct...21`
+  ) %>%
+  mutate(ct = replace_na(ct, "No Ct")) %>%
+  mutate(ct = as.numeric(ct))
+# Make sure each sample ID has one and only one Ct value
+sample_ct_values <- rep_metadata %>%
+  distinct(sample_id, ct) %>%
+  group_by(sample_id) %>%
+  mutate(n_ct = n()) %>%
+  ungroup()
+if (max(sample_ct_values$n_ct) > 1) {
+  stop("Some sample IDs have more than one Ct value", call. = FALSE)
+}
+
+# Summarize read counts and join metadata ------------------------------
+rl_read_counts <- variant_read_counts %>%
+  # Calculate total reads for each replicate/locus
+  group_by(rep_id, locus) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  left_join(rep_metadata, by = "rep_id")
+
+# Plot reads by replicate and locus ------------------------------------
+for (l in unique(rl_read_counts$lib_name)) {
+  rl_read_counts %>%
+    read_count_heatmap_byrep(l) %>%
+    print()
+}
 ```
 
-This heatmap shows the number of reads in the final dataset for each
-locus-replicate combination. These results closely mirror those presented in 
-ampseqc_results.Rmd, which is expected and therefore reassuring.
+These heatmaps show the number of reads in the final dataset for each
+locus-replicate combination. The plots have been grouped according to library. 
+LB2 contained samples from Duffy positives, sequenced in duplicate, while LB5 
+and LB7 contained samples from Duffy negatives that were sequenced 5x.
+
+Sequencing yield was reasonably consistent across replicates, though there were 
+a few exceptions to this. Sequencing yield was a lot better with samples from 
+Duffy positive individuals, which is presumably related to parasitemia.
+
+### Sample Means
+
+```{r fig.width = 15, fig.height = 11}
+read_count_heatmap_bysample <- function(reads, loi) {
+  reads %>%
+    filter(lib_name == loi) %>%
+    ggplot(mapping = aes(x = locus, y = sample_id, fill = n_read)) +
+    geom_tile() +
+    scale_fill_fermenter(
+      palette = "YlGnBu", 
+      name = "Reads", 
+      breaks = c(10, 100, 1000, 2000)
+    ) +
+    labs(x = "Locus", y = "Sample", title = loi) +
+    theme(
+      axis.text.x = element_text(angle = 60, hjust = 1), 
+      legend.position = "bottom", 
+      legend.key.width = unit(0.35, "in")
+    )
+}
+
+# Compute mean read counts for each sample/locus -----------------------
+sl_mean_read_counts <- rl_read_counts %>%
+  group_by(sample_id, locus, lib_name, ct) %>%
+  summarize(n_read = mean(n_read), .groups = "drop")
+
+# Plot reads by sample and locus ---------------------------------------
+for (l in unique(sl_mean_read_counts$lib_name)) {
+  sl_mean_read_counts %>%
+    read_count_heatmap_bysample(l) %>%
+    print()
+}
+```
+
+These heatmaps show the mean number of reads for each sample-locus combination.
+Once again, a separate plot was made for each library.
 
 # Filtering at Each Step
 
 ```{r}
 # Read in read filtering information -----------------------------------
 reads_summary <- read_table(
-  inp$reads_summary, 
-  col_names = c(
-    "sample", 
-    "input", 
-    "filtered", 
-    "denoisedF", 
-    "denoisedR", 
-    "merged", 
-    "nonchim"
-  ), 
-  col_types = cols(.default = "i", sample = "c"), 
-  skip = 1, 
-  progress = FALSE
-)
+    inp$reads_summary, 
+    col_names = c(
+      "sample", 
+      "input", 
+      "filtered", 
+      "denoisedF", 
+      "denoisedR", 
+      "merged", 
+      "nonchim"
+    ), 
+    col_types = cols(.default = "i", sample = "c"), 
+    skip = 1, 
+    progress = FALSE
+  ) %>%
+  rename(rep_id = sample)
 
 # Join final read counts -----------------------------------------------
-reads_by_step <- final_reads %>%
-  group_by(sample) %>%
+reads_by_step <- rl_read_counts %>%
+  group_by(rep_id) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
-  right_join(reads_summary, by = "sample") %>%
+  right_join(reads_summary, by = "rep_id") %>%
   rename(final = n_read) %>%
   relocate(final, .after = last_col()) %>%
-  pivot_longer(-sample, names_to = "workflow_step", values_to = "n_read") %>%
+  pivot_longer(-rep_id, names_to = "workflow_step", values_to = "n_read") %>%
   group_by(workflow_step) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
   mutate(
@@ -128,3 +241,33 @@ This table shows the total number of reads after each step in the DADA2 part of
 the pipeline plus the final filtering done by `ASV_to_CIGAR.py`. At no point is 
 there an order(s) of magnitude reduction in the data volume, which would 
 indicate cause for concern.
+
+# Relationship with Parasitemia
+
+```{r}
+sample_total_read_counts <- rl_read_counts %>%
+  group_by(sample_id, lib_name, ct) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  filter(! is.na(ct)) %>%
+  mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
+sample_total_read_counts %>%
+  ggplot(mapping = aes(x = parasitemia, y = n_read)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  labs(
+    x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
+    y = "Total Reads"
+  )
+```
+
+This scatterplot shows the relationship between parasitemia and total read count
+obtained for each sample.
+
+Most of the samples in LB5 had either "No Ct" or just no value for Ct in the
+metadata spreadsheet. These were excluded from this figure.
+
+```{r}
+# Save for publication figures -----------------------------------------
+rl_read_counts %>%
+  write_csv(out$read_counts)
+```
