@@ -712,6 +712,10 @@ rule asv2cigar_uci1223:
 uci1223_rep_metadata = os.path.join(
     "resources", 
     "MH_template__LB_EHS_dz07242024_to_liz.xlsx")
+uci1223_sl_read_counts = os.path.join(ampseq_uci1223_dir, "sl_read_counts.csv")
+uci1223_s_read_counts_parasitemia = os.path.join(
+    ampseq_uci1223_dir, 
+    "s_read_counts_parasitemia.csv")
 rule assess_microhap_quantity_uci1223:
     input:
         uci1223_reads_summ, 
@@ -727,7 +731,9 @@ rule assess_microhap_quantity_uci1223:
             notebooks["microhap_quantity_uci1223"], 
             ".nb.html", 
             ".pdf", 
-            ".md")
+            ".md"), 
+        uci1223_sl_read_counts, 
+        uci1223_s_read_counts_parasitemia
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \

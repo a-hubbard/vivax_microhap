@@ -89,16 +89,21 @@ rep_metadata <- read_xlsx(
     DARC_Phenotype, 
     Site, 
     Method, 
-    `Ct...21`
+    `Ct...21`, 
+    `Ct...23`
   ) %>%
   rename(
     rep_id = SampleID, 
     lib_name = `library name`, 
     sample_id = MH_DNA_Well, 
-    ct = `Ct...21`
+    ct1 = `Ct...21`, 
+    ct2 = `Ct...23`
   ) %>%
+  pivot_longer(c(ct1, ct2), names_to = "ct_rep", values_to = "ct") %>%
   mutate(ct = na_if(ct, "No Ct")) %>%
-  mutate(ct = as.numeric(ct))
+  mutate(ct = as.numeric(ct)) %>%
+  group_by(rep_id, lib_name, sample_id, DARC_Phenotype, Site, Method) %>%
+  summarize(ct = mean(ct), .groups = "drop")
 # Make sure each sample ID has one and only one Ct value
 sample_ct_values <- rep_metadata %>%
   distinct(sample_id, ct) %>%
@@ -160,7 +165,7 @@ read_count_heatmap_bysample <- function(reads, loi) {
 
 # Compute mean read counts for each sample/locus -----------------------
 sl_mean_read_counts <- rl_read_counts %>%
-  group_by(sample_id, locus, lib_name, ct) %>%
+  group_by(sample_id, locus, lib_name) %>%
   summarize(n_read = mean(n_read), .groups = "drop")
 
 # Plot reads by sample and locus ---------------------------------------
@@ -243,34 +248,70 @@ volume, which would indicate cause for concern.
 
 # Relationship with Parasitemia
 
+This table shows total sample read counts and parasitemia. Duffy
+negatives have been removed, and the two Ct replicates have been
+averaged.
+
 ``` r
+# Compute and print sample read count and parasitemia ------------------
 sample_total_read_counts <- rl_read_counts %>%
+  # Remove Duffy negatives
+  filter(DARC_Phenotype != "negative") %>%
+  select(-DARC_Phenotype) %>%
   group_by(sample_id, lib_name, ct) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
   filter(! is.na(ct)) %>%
   mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
 sample_total_read_counts %>%
+  arrange(n_read)
+```
+
+    ## # A tibble: 48 × 5
+    ##    sample_id lib_name    ct n_read parasitemia
+    ##    <chr>     <chr>    <dbl>  <int>       <dbl>
+    ##  1 MH1_C02   LB2       36.0   1674       51.0 
+    ##  2 MH1_A04   LB2       34.7   1700      135.  
+    ##  3 MH2_C01   LB2       38.4   2375        9.97
+    ##  4 MH4_A11   LB2       36.0   3683       51.2 
+    ##  5 MH1_B10   LB2       33.5   5953      303.  
+    ##  6 MH4_B04   LB2       33.6   6003      286.  
+    ##  7 MH2_D04   LB2       34.7  12570      131.  
+    ##  8 MH4_D12   LB2       33.1  19675      411.  
+    ##  9 MH1_A10   LB2       27.4  22987    21531.  
+    ## 10 MH1_A03   LB2       31.4  25493     1343.  
+    ## # ℹ 38 more rows
+
+Even at parasitemias of 10-50 parasites/$\mu$L, more than 1000 reads
+were obtained.
+
+``` r
+# Plot parasitemia versus sample read count ----------------------------
+sample_total_read_counts %>%
   ggplot(mapping = aes(x = parasitemia, y = n_read)) +
   geom_point() +
-  geom_smooth(method = "lm") +
+  geom_smooth(method = "lm", formula = "y ~ x") +
+  scale_x_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10") +
   labs(
     x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
     y = "Total Reads"
   )
 ```
 
-    ## `geom_smooth()` using formula = 'y ~ x'
-
-![](/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+![](/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
 This scatterplot shows the relationship between parasitemia and total
-read count obtained for each sample.
+read count obtained for each sample. Both axes are $log_{10}$ scaled.
 
-Most of the samples in LB5 had either “No Ct” or just no value for Ct in
-the metadata spreadsheet. These were excluded from this figure.
+The fitted linear relationship suggests that at a parasitemia of 100
+parasites/$\mu$L one can expect to obtain about 10,000 reads. This is
+encouraging, as this would yield more than 100 reads per locus if they
+are evenly distributed across the panel.
 
 ``` r
-# Save for publication figures -----------------------------------------
-rl_read_counts %>%
-  write_csv(out$read_counts)
+# Save data for publication figures ------------------------------------
+sl_mean_read_counts %>%
+  write_csv(out$sl_read_counts)
+sample_total_read_counts %>%
+  write_csv(out$s_read_counts_parasitemia)
 ```
