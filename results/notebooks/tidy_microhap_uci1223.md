@@ -6,7 +6,7 @@ Alfred Hubbard
 
 For each sample, the replicate with the most loci that have 100 reads or
 more is kept. At the same time, any samples where no replicates have 100
-reads or more are removed.
+reads or more are removed. Duffy negative samples are also removed.
 
 ``` r
 # Read in final, filtered data -----------------------------------------
@@ -43,7 +43,7 @@ rep_metadata <- read_xlsx(
     inp$rep_metadata, 
     sheet = "pv242"
   ) %>%
-  select(SampleID, MH_DNA_Well) %>%
+  select(SampleID, MH_DNA_Well, DARC_Phenotype) %>%
   rename(rep_id = SampleID, sample_id = MH_DNA_Well)
 ```
 
@@ -62,6 +62,15 @@ allele_table <- allele_table %>%
 # Filter out non-diversity loci ----------------------------------------
 allele_table <- allele_table %>%
   filter(str_detect(locus, "PvP01"))
+
+# Filter out Duffy negatives -------------------------------------------
+allele_table <- allele_table %>%
+  filter(DARC_Phenotype != "negative") %>%
+  select(-DARC_Phenotype)
+
+# Get number of samples before additional filtering --------------------
+n_Duffy_pos <- allele_table %$%
+  n_distinct(sample_id)
 
 # For each sample, keep replicate with most loci with >= 100 reads -----
 reps_w_highreads <- allele_table %>%
@@ -87,7 +96,7 @@ allele_table <- allele_table %>%
   left_join(n_loc_wdata, by = "sample_id")
 
 # Plot distribution of missing data proportion by locus ----------------
-n_loc_wdata_thres <- 40
+n_loc_wdata_thres <- 60
 allele_table %>%
   select(sample_id, n_loc_wdata) %>%
   distinct() %>%
@@ -101,7 +110,7 @@ allele_table %>%
 
 This histogram shows the distribution of samples according to how many
 loci have data for each sample. The vertical blue line shows the
-threshold of 40 loci with data that will be used for filtering the
+threshold of 60 loci with data that will be used for filtering the
 samples.
 
 ``` r
@@ -137,7 +146,7 @@ allele_table %>%
 ![](/users/ahubba16/projects/vivax_microhap/results/notebooks/tidy_microhap_uci1223_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
 
 This histogram shows the distribution of loci according to how many
-samples have data for each locus. Note the sample filter of 40 loci with
+samples have data for each locus. Note the sample filter of 60 loci with
 data has already been applied, and this histogram is based on the
 remaining data.
 
@@ -169,7 +178,9 @@ Number of samples in the filtered dataset:
 n_distinct(allele_table$sample_id)
 ```
 
-    ## [1] 48
+    ## [1] 44
+
+…out of a total of 48 Duffy positive samples.
 
 ``` r
 # Save filtered data
