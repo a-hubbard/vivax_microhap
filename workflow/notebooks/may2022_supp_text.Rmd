@@ -1,9 +1,22 @@
 ---
-title: Plasmodium vivax Microhaplotype Panel Design and Validation
+title: "PvGAP: Development of a globally-applicable, highly-multiplexed 
+microhaplotype amplicon panel and protocol for *Plasmodium vivax*"
 subtitle: "Supplemental Text 1: Small Batch Testing to Optimize Protocol"
+author:
+- Alfred Hubbard
+- Edwin Solares
+- Lauren Bradley
+- Brook Jeang
+- Delenasaw Yewhalaw
+- Daniel Janies
+- Eugenia Lo
+- Guiyun Yan
+- Elizabeth Hemming-Schroeder
 bibliography: ../../lib.bib
 output:
-  pdf_document: default
+  bookdown::pdf_document2:
+    toc: false
+    extra_dependencies: ["float"]
 ---
 
 ```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
@@ -12,27 +25,42 @@ output:
 # are loaded second to avoid masking
 library(knitr)
 library(magrittr)
+library(patchwork)
 library(tidyverse)
 
 # Set default chunk parameters
-opts_chunk$set(echo = FALSE, fig.align = "center", out.width = "100%")
+opts_chunk$set(echo = FALSE, fig.align = "center", fig.pos = "H")
+
+# Hardcode parameters. These are not passed as shell arguments because 
+# hardcoded values facilitate development and this document is not 
+# meant to be usable with other projects.
+inp <- list(
+  total_read_counts = "../../resources/may2022_totalreadcount.txt", 
+  readcounts_metadata = "../../results/may2022_readcounts_metadata.csv"
+)
 ```
 
-# Sample collection
+This document describes a series of small test runs that were performed with a 
+handful of field samples to optimize the PvGAP protocol for DNA extraction and 
+library preparation.
+
+# Methods
+
+## Sample collection
 
 To evaluate the panel in terms of sequencing yield and ability to obtain 
 haplotypes, we used six samples previously collected as part of an ongoing 
 Sub-Saharan Africa International Center for Excellence for Malaria Research 
 (ICEMR) project. Some of these samples were obtained with passive case detection 
 and some came from mass blood surveys. The samples were collected from three 
-ongoing field sites in the Oromo region of Southwest Ethiopia; the Arjo-Didessa 
+field sites in the Oromo region of Southwest Ethiopia; the Arjo-Didessa 
 sugarcane farm, the Gambella region, and Jimma town.
 
 In addition, four whole blood samples collected from Agaro Health Center, which 
 is near Jimma, Ethiopia, were used to evaluate panel performance with DNA 
 extracts derived from whole blood.
 
-# Library preparation
+## Library preparation
 
 For DBS samples, two different extraction methods were tested: the Qiagen QIAamp 
 DNA Investigator Kit (from now on referred to as the "kit") and the 
@@ -43,33 +71,220 @@ targeted pre-amplification), and selective whole genome amplification (SWGA)
 prior to the first PCR in the GT-seq protocol.
 
 When SWGA was used, we performed the reaction and bead cleanup according to the 
-established protocol [@cowellSelectiveWholeGenomeAmplification2017], prior to 
-the GT-seq PCR. When targeted pre-amplification was performed, nested reaction 
-mixtures and amplification were conducted following the same conditions as PCR 1 
-of the GT-seq protocol, prior to the GT-seq PCR. Following enrichment, the 
-protocol consists of an initial PCR with primers for amplicon targets containing 
-adapter sequences, an enzymatic cleanup of PCR products, a second PCR for 
-normalization and incorporation of dual indexing tags (Nate’s plates), and bead 
-size selection. Libraries were sequenced on an Illumina Miseq with a 500 cycle 
-kit in paired-end mode.
+established protocol [@cowellSelectiveWholeGenomeAmplification2017]. When 
+targeted pre-amplification was performed, nested reaction mixtures and 
+amplification were conducted following the same conditions as PCR 1 of the 
+GT-seq protocol.
 
-# Sequence analysis
+Following enrichment, the protocol consists of an initial PCR with primers for 
+amplicon targets containing adapter sequences, an enzymatic cleanup of PCR 
+products, a second PCR for normalization and incorporation of dual indexing tags 
+(Nate’s plates), and bead size selection. Libraries were sequenced on an 
+Illumina MiSeq with a 500 cycle kit in paired-end mode.
+
+## Sequence analysis
 
 We used the SeekDeep pipeline [@hathawaySeekDeepSinglebaseResolution2018] to 
-demultiplex, filter reads, and estimate haplotype frequencies. First, to join 
-and extract reads by locus, we used the extractorPairedEnd function with default 
-filtering and quality parameters and additional primer specifications 
-(minOverlap: 6, primercoverage: 0.7, primerWithinStart: 20). Next, the qluster 
-function with default parameters for Illumina data was used to create haplotypes 
-with relative abundances. Final filtering was done using the processsClusters 
-function with parameters that allow for a few low-quality mismatches and no 
-indels, recommended by the developer for Illumina data (parameters: 
-strictErrors, illumina, fracCutOff 0.02).
+demultiplex, filter reads, and compute read counts. First, to join and extract 
+reads by locus, we used the extractorPairedEnd function with default filtering 
+and quality parameters and additional primer specifications (minOverlap: 6, 
+primercoverage: 0.7, primerWithinStart: 20). Next, the qluster function with 
+default parameters for Illumina data was used to create haplotypes with relative 
+abundances. Final filtering was done using the processsClusters function with 
+parameters that allow for a few low-quality mismatches and no indels, 
+recommended by the developer for Illumina data (parameters: strictErrors, 
+illumina, fracCutOff 0.02).
 
 To evaluate the different laboratory protocols, the percentage of on-target 
 reads was calculated by dividing the total number of reads that were matched to 
 panel loci by SeekDeep for each sample by the total number of reads for that 
 sample in the raw data.
+
+# Results
+
+Among the various DNA preservation, extraction, and enrichment methods tested, 
+the results point to two viable strategies, depending on parasite density. From 
+the DBS samples, SWGA more consistently produced high percentages of on-target 
+reads than the other enrichment methods (Figure
+\@ref(fig:otreads-by-protocol)A), but targeted pre-amplification led to more 
+consistent amplification of each marker (Figure 
+\@ref(fig:locus-reads-by-protocol)A). The Chelex- and kit-based extraction 
+methods were relatively comparable in terms of on-target reads (Figure 
+\@ref(fig:otreads-by-protocol)A) and marker amplification (Figure 
+\@ref(fig:locus-reads-by-protocol)A). High percentages of on-target reads were 
+obtained from whole blood samples for both SWGA and targeted pre-amplification 
+(Figure \@ref(fig:otreads-by-protocol)B), but many loci did not amplify well 
+from these samples, regardless of enrichment method (Figure 
+\@ref(fig:locus-reads-by-protocol)B). From these results, it can be concluded 
+that with this panel whole blood samples are not worth the additional effort and 
+cost, and there is little difference in performance between Chelex-based and 
+kit-based extraction. However, there are tradeoffs between SWGA and targeted 
+pre-amplification, and it is not apparent which is best.
+
+```{r}
+#| otreads-by-protocol, fig.height = 7, fig.width = 5, 
+#| fig.cap = "Bar plots indicating the percentage of on-target reads for the 
+#|   DBS samples (A) and the whole blood samples (B). There is one plot for 
+#|   each DNA enrichment method and, in the case of the DBS samples, the 
+#|   extraction method that was tested."
+
+protocol_barplot <- function(pct_ot_reads, dna_source) {
+  if (dna_source == "DBS") {
+    facet_cmd <- facet_grid(rows = vars(Extraction), cols = vars(Treatment))
+  } else if (dna_source == "Whole blood") {
+    facet_cmd <- facet_wrap(vars(Treatment))
+  }
+  pct_ot_reads %>%
+    filter(Source == dna_source) %>%
+    ggplot(mapping = aes(x = SID, y = pct_read_ot)) +
+    geom_col() +
+    facet_cmd +
+    ylim(0, 100) +
+    labs(x = "Sample", y = "On-Target Reads (%)") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1))
+}
+
+# Read in data ---------------------------------------------------------
+# Read counts for each locus, with metadata
+read_counts <- read_csv(
+    inp$readcounts_metadata, 
+    col_types = cols(
+      .default = col_character(), 
+      n_read = col_integer(), 
+      CT = col_double(), 
+      CT_Pv = col_double()
+    ), 
+    progress = FALSE
+  ) %>%
+  # Filter out runs with both SWGA and target pre-amplification
+  filter(Treatment != "SWGA & Targ. Pre-amp.")
+# Total read counts from each well
+total_read_counts <- read_tsv(
+  inp$total_read_counts, 
+  col_names = c("protocol_well", "n_read_total"), 
+  col_types = cols(.default = col_character(), n_read_total = col_integer()), 
+  progress = FALSE
+)
+
+# Compute percent on-target (OT) reads ---------------------------------
+ot_reads <- read_counts %>%
+  group_by(protocol_well, SID, Source, Treatment, Extraction) %>%
+  summarize(n_read_ot = sum(n_read), .groups = "drop")
+pct_ot_reads <- ot_reads %>%
+  left_join(total_read_counts, by = "protocol_well") %>%
+  mutate(pct_read_ot = (n_read_ot / n_read_total) * 100)
+
+# Make plots -----------------------------------------------------------
+dbs_plot <- protocol_barplot(pct_ot_reads, "DBS")
+wb_plot <- protocol_barplot(pct_ot_reads, "Whole blood")
+(dbs_plot / wb_plot) +
+  plot_annotation(tag_levels = "A")
+```
+
+```{r}
+#| locus-reads-by-protocol, fig.height = 3.5, 
+#| fig.cap = "Box plots (with Tukey-style whiskers that extend to a maximum of 
+#|   1.5 * IQR) showing the mean read count across all samples for each locus, 
+#|   separated according to DNA enrichment and extraction method. The DBS 
+#|   samples are shown in (A) and the whole blood samples in (B). In both 
+#|   cases, the y-axis is $log_{10}$ transformed."
+
+protocol_boxplot <- function(read_counts, dna_source) {
+  if (dna_source == "DBS") {
+    mapping <- aes(x = Treatment, y = mean_read_count, color = Extraction)
+    color_scale <- scale_color_discrete(name = "Extraction\nMethod")
+  } else if (dna_source == "Whole blood") {
+    mapping <- aes(x = Treatment, y = mean_read_count)
+    color_scale <- NULL
+  }
+  read_counts %>%
+    filter(Source == dna_source) %>%
+    ggplot(mapping = mapping) +
+    geom_boxplot() +
+    scale_y_continuous(trans = "log10") +
+    color_scale +
+    labs(x = "Enrichment Method", y = "Mean Locus Read Count") +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 60, hjust = 1))
+}
+
+# Filter loci and compute mean read count across samples ---------------
+mean_read_counts <- read_counts %>%
+  # Make all missing data explicit
+  complete(
+    SID, 
+    Source, 
+    Treatment, 
+    Extraction, 
+    locus, 
+    fill = list(n_read = 0)
+  ) %>%
+  group_by(locus, Treatment, Extraction, Source) %>%
+  summarize(mean_read_count = mean(n_read), .groups = "drop") %>%
+  # Add 1 to all reads to enable use of log10 transformation
+  mutate(mean_read_count = mean_read_count + 1)
+
+# Make plots -----------------------------------------------------------
+dbs_plot <- protocol_boxplot(mean_read_counts, "DBS")
+wb_plot <- protocol_boxplot(mean_read_counts, "Whole blood")
+(dbs_plot | wb_plot) +
+  plot_annotation(tag_levels = "A")
+```
+
+The picture becomes more clear when the relationship with parasite density is 
+considered (Figure \@ref(fig:otreads-vs-density-scatterplot)). Targeted 
+pre-amplification performs much better in DBS samples with a high parasite load, 
+whereas the performance of SWGA is consistently high. Therefore, SWGA was 
+selected for the final protocol, though it is noted that with high parasitemia 
+targeted pre-amplification is also a viable option, and may in fact perform 
+slightly better.
+
+```{r}
+#| otreads-vs-density-scatterplot, message = FALSE, 
+#| fig.cap = "These scatterplots show the relationship between the percentage 
+#|   of on-target reads and parasite density, for each combination of 
+#|   enrichment protocol (none, SWGA, and targeted pre-amplification) and DNA 
+#|   preservation/extraction method (DBS+Chelex, DBS+Kit, and whole blood). In 
+#|   each case, a linear regression between parasite density and the percentage 
+#|   of on-target reads is displayed, with confidence intervals, to aid 
+#|   interpretation."
+
+# Compute percent on-target (OT) reads ---------------------------------
+reads_sample_data <- read_counts %>%
+  # Merge source and extraction columns
+  mutate(
+    source_extraction = if_else(
+      Source == "Whole blood", 
+      "Whole blood", 
+      if_else(Extraction == "Chelex", "DBS+Chelex", "DBS+Kit")
+    )
+  ) %>%
+  select(-Source, -Extraction) %>%
+  group_by(protocol_well, SID, source_extraction, Treatment, CT_Pv) %>%
+  summarize(n_read_ot = sum(n_read), .groups = "drop") %>%
+  left_join(total_read_counts, by = "protocol_well") %>%
+  mutate(pct_read_ot = (n_read_ot / n_read_total) * 100)
+
+# Compute parasite density ---------------------------------------------
+reads_sample_data <- reads_sample_data %>%
+  mutate(
+    para_dens = if_else(
+      source_extraction == "Whole blood", 
+      (10^((CT_Pv - 41.663)/-3.289))/5, 
+      (10^((CT_Pv - 41.663)/-3.289))
+    )
+  )
+
+# Create plots ---------------------------------------------------------
+reads_sample_data %>%
+  ggplot(mapping = aes(x = para_dens, y = pct_read_ot)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_grid(rows = vars(source_extraction), cols = vars(Treatment)) +
+  labs(x = "Parasite Density", y = "On-Target Reads (%)") +
+  theme_bw()
+```
 
 \newpage
 

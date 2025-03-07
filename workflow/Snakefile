@@ -73,10 +73,6 @@ localrules:
     filter4popgen, 
     analyze_relatedness, 
     plot_panel_target_metrics, 
-    plot_otreads_by_protocol, 
-    plot_locus_reads_by_protocol, 
-    plot_otreads_vs_density, 
-    plot_reads_by_locus, 
     plot_mean_het_by_pop, 
     plot_sample_rel, 
     rel_heatmaps, 
@@ -113,15 +109,11 @@ nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
 figdir = os.path.join("results", "figs")
 figs = {
     "panel_target_metrics": "fig1", 
-    "otreads_by_protocol": "fig2", 
-    "locus_reads_by_protocol": "fig3", 
-    "otreads_vs_density": "fig4", 
-    "reads_by_locus": "suppfig1", 
     "mean_het_by_pop": "suppfig2", 
     "rel_hist": "suppfig3", 
-    "rel_heatmaps_country": "fig5", 
+    "rel_heatmaps_country": "fig3", 
     "rel_heatmaps_site": "suppfig4", 
-    "site_rel_net": "fig6"}
+    "site_rel_net": "fig4"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 # Documents
 figs_tables_doc = os.path.join("results", "all_figs_tables.pdf")
@@ -1135,76 +1127,6 @@ rule plot_panel_target_metrics:
     shell: 
         "Rscript {input.code} --window_stats {input.window_stats} --targets "
         "{input.targets} --out_base {params.basename}"
-may2022_total_readcount = os.path.join(
-    "resources", 
-    "may2022_totalreadcount.txt")
-rule plot_otreads_by_protocol:
-    input:
-        readcounts_metadata = may2022_readcounts_metadata, 
-        total_readcounts = may2022_total_readcount, 
-        code = os.path.join(
-            "workflow", 
-            "scripts", 
-            "otreads_by_protocol_barplots.R")
-    output: 
-        multiext(os.path.join(figdir,figs["otreads_by_protocol"]), 
-            ".pdf", 
-            ".png")
-    params:
-        basename = lambda wildcards, output: output[0][:-4]
-    shell: 
-        "Rscript {input.code} --readcounts_metadata "
-        "{input.readcounts_metadata} --total_read_counts "
-        "{input.total_readcounts} --out_base {params.basename}"
-rule plot_locus_reads_by_protocol:
-    input:
-        readcounts_metadata = may2022_readcounts_metadata, 
-        selected_loci = loci2filter_good_amp, 
-        code = os.path.join(
-            "workflow", 
-            "scripts", 
-            "locus_reads_by_protocol_boxplots.R")
-    output: 
-        multiext(os.path.join(figdir,figs["locus_reads_by_protocol"]), 
-            ".pdf", 
-            ".png")
-    params:
-        basename = lambda wildcards, output: output[0][:-4]
-    shell: 
-        "Rscript {input.code} --readcounts_metadata "
-        "{input.readcounts_metadata} --selected_loci {input.selected_loci} "
-        "--out_base {params.basename}"
-rule plot_otreads_vs_density:
-    input:
-        readcounts_metadata = may2022_readcounts_metadata, 
-        total_readcounts = may2022_total_readcount, 
-        code = os.path.join(
-            "workflow", 
-            "scripts", 
-            "otreads_vs_density_scatterplots.R")
-    output: 
-        multiext(os.path.join(figdir,figs["otreads_vs_density"]), 
-            ".pdf", 
-            ".png")
-    params:
-        basename = lambda wildcards, output: output[0][:-4]
-    shell: 
-        "Rscript {input.code} --readcounts_metadata "
-        "{input.readcounts_metadata} --total_read_counts "
-        "{input.total_readcounts} --out_base {params.basename}"
-rule plot_reads_by_locus:
-    input:
-        readcounts_metadata = may2022_readcounts_metadata, 
-        selected_loci = loci2filter_good_amp, 
-        code = os.path.join("workflow", "scripts", "reads_by_locus_barplots.R")
-    output: 
-        multiext(os.path.join(figdir,figs["reads_by_locus"]), ".pdf", ".png")
-    params:
-        basename = lambda wildcards, output: output[0][:-4]
-    shell: 
-        "Rscript {input.code} --readcounts_metadata "
-        "{input.readcounts_metadata} --selected_loci {input.selected_loci} "
-        "--out_base {params.basename}"
 rule plot_mean_het_by_pop:
     input:
         mh_data_gd = mg_microhap_filtered4popgen_gd, 
@@ -1257,8 +1179,13 @@ rule map_rel_net:
         "{input.site_coords} --out_base {params.basename}"
 
 # Supplemental texts
+may2022_total_readcount = os.path.join(
+    "resources", 
+    "may2022_totalreadcount.txt")
 rule compile_may2022_supp_text:
     input:
+        may2022_readcounts_metadata, 
+        may2022_total_readcount, 
         code = os.path.join("workflow", "notebooks", "may2022_supp_text.Rmd")
     output: os.path.join(supp_texts_dir, supp_texts["may2022"] + ".pdf")
     shell:

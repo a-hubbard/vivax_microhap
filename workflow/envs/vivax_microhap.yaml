@@ -28,6 +28,8 @@ dependencies:
   # Prevent R from updating mid-project
   - r-base<4.2
   - r-tidyverse
+  - r-rmarkdown
+  - r-bookdown
   - r-devtools
   - r-optparse
   - r-patchwork
