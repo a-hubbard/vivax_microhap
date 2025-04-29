@@ -54,8 +54,6 @@ localrules:
     unzip_ref_gff, 
     subset_annot, 
     refmt_annot, 
-    dwnld_metadata, 
-    dwnld_coi, 
     index_variant_file, 
     filter_bcf_by_locus, 
     concat_bcfs, 
@@ -293,6 +291,8 @@ rule captured_seq_bounds:
                                 " is a duplicate")
                         chrom = elements[0]
                         target = elements[3][:-8]
+                        score = elements[4]
+                        strand = elements[5]
                         fwd_start = int(elements[1])
                         fwd_end = int(elements[2])
                     if elements[3].split('_')[-1] == "reverse":
@@ -323,15 +323,23 @@ rule captured_seq_bounds:
                                 chrom,
                                 start_pos_wprimers,
                                 end_pos_wprimers,
-                                target+'\n']))
+                                target,
+                                # No score is transferred because it 
+                                # could be different for the forward 
+                                # and reverse primers
+                                '.',
+                                strand+'\n']))
                         trg_coord_noprimers_f.write(
                             '\t'.join([
                                 chrom,
                                 start_pos_noprimers,
                                 end_pos_noprimers,
-                                target+'\n']))
+                                target,
+                                '.',
+                                strand+'\n']))
                         chrom = ""
                         target = ""
+                        strand = ""
 
 # Check mapping for issues
 rule investigate_mapping:
@@ -434,6 +442,8 @@ rule targets_bed2gff:
                     start_pos = str(int(elements[1]) + 1)
                     end_pos = elements[2]
                     target = elements[3]
+                    score = elements[4]
+                    strand = elements[5]
                     gff_f.write(
                         '\t'.join([
                             chrom,
@@ -441,8 +451,8 @@ rule targets_bed2gff:
                             "amplicon",
                             start_pos,
                             end_pos,
-                            '.',
-                            '+',
+                            score, 
+                            strand,
                             '.',
                             "ID="+target+'\n']))
 # Path to AmpSeQC script
@@ -538,7 +548,7 @@ rule extract_captured_seq:
         bed = trg_coords_good_amp
     output: captured_seq
     shell: 
-        "bedtools getfasta -fi {input.ref} -bed {input.bed} > {output}"
+        "bedtools getfasta -s -fi {input.ref} -bed {input.bed} > {output}"
 rule filter_primers:
     input:
         primers = os.path.join("results", "{direc}_primers.fasta"), 
@@ -593,7 +603,7 @@ rule subset_annot:
         panel_bed = trg_coords_good_amp
     output: panel_annot
     shell: 
-        "bedtools intersect -a {input.panel_bed} -b {input.ref_gff} -loj > "
+        "bedtools intersect -s -a {input.panel_bed} -b {input.ref_gff} -loj > "
         "{output}"
 rule refmt_annot:
     input:
@@ -762,53 +772,22 @@ rule tidy_microhap_uci1223:
            output_dir = "{rendered_notebook_dir}")'
         """
 
-# Download MalariaGEN data
-malariagen_dir = os.path.join("results", "MalariaGEN")
-malariagen_orig_dir = os.path.join(malariagen_dir, "orig")
-malariagen_metadata = os.path.join(malariagen_orig_dir, "Pv4_samples.txt")
-rule dwnld_metadata:
-    output: malariagen_metadata
-    shell: 
-        "wget -P {malariagen_orig_dir} "
-        "https://www.malariagen.net/wp-content/uploads/2023/11/Pv4_samples.txt"
-malariagen_coi = os.path.join(malariagen_orig_dir, "Pv4_fws.txt")
-rule dwnld_coi:
-    output: malariagen_coi
-    shell: 
-        "wget -P {malariagen_orig_dir} "
-        "https://www.malariagen.net/wp-content/uploads/2023/11/Pv4_fws.txt"
-chromosome_nums = list(map(lambda c: str(c).zfill(2),range(1, 15)))
-# It would be more efficient to download all the files with one wget, 
-# but I can't figure out how to tell Snakemake it can obtain all the 
-# wildcard outputs with one execution of a rule
-rule dwnld_genotypes:
-    output:
-        temp(os.path.join(malariagen_orig_dir,"Pv4_PvP01_{chrom}_v1.{ext}"))
-    resources:
-        time = 600, 
-        mem_mb = 2000, 
-        # Our cluster's data transfer node. Modify as necessary if 
-        # running on a different machine.
-        partition = "DTN"
-    threads: 1
-    benchmark: 
-        os.path.join("benchmarks", "dwnld_genotypes_{chrom}_{ext}.tsv")
-    shell: 
-        "wget -P {malariagen_orig_dir} "
-        "ftp://ngs.sanger.ac.uk/production/malaria/Resource/30/Pv4_vcf/"
-        "Pv4_PvP01_{wildcards.chrom}_v1.{wildcards.ext}"
-
 # Filter and concatenate MalariaGEN VCFs
+malariagen_orig_dir = os.path.join("resources", "MalariaGEN", "orig")
+malariagen_orig_vcf_dir = os.path.join(malariagen_orig_dir, "Pv4_vcf")
+malariagen_metadata = os.path.join(malariagen_orig_dir, "Pv4_samples.txt")
 malariagen_chromrenamed = "Pv4_PvP01_{chrom}_v1_chromrenamed.bcf"
 # Rename chromosomes to match convention in reference genome
 rule rename_chroms:
     input:
         chrom_key = os.path.join("resources", "chrom_key.tsv"), 
-        vcf = os.path.join(malariagen_orig_dir, "Pv4_PvP01_{chrom}_v1.vcf.gz")
+        vcf = os.path.join(
+            malariagen_orig_vcf_dir, 
+            "Pv4_PvP01_{chrom}_v1.vcf.gz")
     output: temp(malariagen_chromrenamed)
     resources:
         time = 10, 
-        mem_mb = 2000
+        mem_mb = 4000
     threads: 1
     benchmark: os.path.join("benchmarks", "rename_chroms_{chrom}.tsv")
     shell: 
@@ -828,9 +807,10 @@ rule filter_bcf_by_locus:
         vcf = malariagen_chromrenamed
     output: temp(malariagen_filteredbylocus)
     shell: "bcftools view -R {input.bed} -O u -o {output} {input.vcf}"
-malariagen_prep_dir = os.path.join(malariagen_dir, "preprocessed")
+malariagen_prep_dir = os.path.join("results", "MalariaGEN", "preprocessed")
 malariagen_concat = os.path.join(malariagen_prep_dir, "concatenated.vcf.gz")
 # Concatenate data from all chromosomes into one VCF
+chromosome_nums = list(map(lambda c: str(c).zfill(2),range(1, 15)))
 rule concat_bcfs:
     input: expand(malariagen_filteredbylocus, chrom=chromosome_nums)
     output: malariagen_concat
@@ -856,6 +836,7 @@ rule compute_missbysamp:
     output: malariagen_missbysamp
     shadow: "full"
     shell: "vcftools --gzvcf {input} --missing-indv --stdout > {output}"
+malariagen_coi = os.path.join(malariagen_orig_dir, "Pv4_fws.txt")
 filtered_sample_list = os.path.join("results", "filtered_samples.txt")
 filtered_sample_metadata = os.path.join(
     malariagen_prep_dir, 

@@ -11,3 +11,4 @@ logs/*
 .RData
 .Rhistory
 resources/seq_data/*
+*.vcf.gz

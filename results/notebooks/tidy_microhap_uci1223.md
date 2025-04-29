@@ -82,6 +82,14 @@ reps_w_highreads <- allele_table %>%
   group_by(sample_id) %>%
   filter(n_loc_highreads == max(n_loc_highreads)) %>%
   ungroup()
+```
+
+    ## Warning: There was 1 warning in `filter()`.
+    ## ℹ In argument: `n_loc_highreads == max(n_loc_highreads)`.
+    ## Caused by warning in `max()`:
+    ## ! no non-missing arguments to max; returning -Inf
+
+``` r
 allele_table <- allele_table %>%
   filter(rep_id %in% reps_w_highreads$rep_id) %>%
   select(-rep_id)
@@ -170,7 +178,7 @@ allele_table %$%
   n_distinct(locus)
 ```
 
-    ## [1] 80
+    ## [1] 0
 
 Number of samples in the filtered dataset:
 
@@ -178,9 +186,9 @@ Number of samples in the filtered dataset:
 n_distinct(allele_table$sample_id)
 ```
 
-    ## [1] 44
+    ## [1] 0
 
-…out of a total of 48 Duffy positive samples.
+…out of a total of 0 Duffy positive samples.
 
 ``` r
 # Save filtered data

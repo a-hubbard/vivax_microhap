@@ -14,7 +14,9 @@ opts <- list(
 )
 arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
-# arg <- list(annot = "../../results/panel_annot.tsv")
+if (interactive()) {
+  arg$annot <- "../../results/panel_annot.tsv"
+}
 
 extract_locus_prop <- function(locus_matches) {
   # Separate out coding sequences and genes that overlap with this 
@@ -119,7 +121,11 @@ extract_locus_prop <- function(locus_matches) {
   # Assemble output tibble
   locus_matches %>%
     select(-ref_start_pos, -ref_end_pos, -feature_type, -attributes) %>%
-    rename(start_pos = locus_start_pos, end_pos = locus_end_pos) %>%
+    rename(
+      start_pos = locus_start_pos, 
+      end_pos = locus_end_pos, 
+      strand = locus_strand
+    ) %>%
     distinct() %>%
     mutate(
       gene_type = gene_type, 
@@ -138,13 +144,15 @@ annot <- read_tsv(
       "locus_start_pos", 
       "locus_end_pos", 
       "locus", 
+      "locus_score", 
+      "locus_strand", 
       "ref_chrom", 
       "feature_source", 
       "feature_type", 
       "ref_start_pos", 
       "ref_end_pos", 
-      "score", 
-      "strand", 
+      "ref_score", 
+      "ref_strand", 
       "phase", 
       "attributes"
     ), 
@@ -157,7 +165,17 @@ annot <- read_tsv(
     ), 
     progress = FALSE
   ) %>%
-  select(-ref_chrom, -feature_source, -score, -strand, -phase) %>%
+  select(
+    locus_chrom, 
+    locus_start_pos, 
+    locus_end_pos, 
+    locus_strand, 
+    locus, 
+    feature_type, 
+    ref_start_pos, 
+    ref_end_pos, 
+    attributes
+  ) %>%
   rename(chrom = locus_chrom)
 
 # Extract locus properties and write to output -------------------------

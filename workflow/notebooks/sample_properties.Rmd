@@ -25,8 +25,8 @@ theme_set(theme_bw())
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
 inp <- list(
-  sample_metadata = "../../results/MalariaGEN/orig/Pv4_samples.txt", 
-  sample_coi = "../../results/MalariaGEN/orig/Pv4_fws.txt", 
+  sample_metadata = "../../resources/MalariaGEN/orig/Pv4_samples.txt", 
+  sample_coi = "../../resources/MalariaGEN/orig/Pv4_fws.txt", 
   sample_missingness = "../../results/MalariaGEN/preprocessed/missbysamp.tsv"
 )
 out <- list(

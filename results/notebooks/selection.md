@@ -109,12 +109,12 @@ selec_res_signif %>%
   select(-chrom)
 ```
 
-    ## # A tibble: 3 × 4
-    ##   locus                       pop_id taj_d        pval
-    ##   <chr>                       <chr>  <dbl>       <dbl>
-    ## 1 pvcrt_o.10k.indel           WAS    -2.90 0          
-    ## 2 pvcrt_o.10k.indel           ESEA   -3.14 0          
-    ## 3 PvP01_10_v1_1072001_1072200 WAS    -2.56 0.000000115
+    ## # A tibble: 3 × 6
+    ##   locus                       X5    X6    pop_id taj_d        pval
+    ##   <chr>                       <chr> <chr> <chr>  <dbl>       <dbl>
+    ## 1 pvcrt_o.10k.indel           .     +     WAS    -2.90 0          
+    ## 2 pvcrt_o.10k.indel           .     +     ESEA   -3.14 0          
+    ## 3 PvP01_10_v1_1072001_1072200 .     +     WAS    -2.56 0.000000115
 
 The table above shows the locus/population combinations that yielded a
 significant result at this corrected threshold. These results suggest

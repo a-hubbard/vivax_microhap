@@ -17,7 +17,7 @@ primers_all <- read_tsv(
 )
 mapping_results <- read_tsv(
     inp$target_coords, 
-    col_names = c("chrom", "start_pos", "end_pos", "target"), 
+    col_names = c("chrom", "start_pos", "end_pos", "target", "score", "strand"), 
     col_types = cols(
       .default = col_character(), 
       start_pos = col_integer(), 

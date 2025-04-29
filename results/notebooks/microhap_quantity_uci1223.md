@@ -45,6 +45,8 @@ variant_read_counts <- read_tsv(
   ) %>%
   pivot_longer(-sample, names_to = "locus_cigar", values_to = "n_read") %>%
   separate_wider_delim(locus_cigar, ",", names = c("locus_pos", "cigar")) %>%
+  # Remove strand information
+  mutate(locus_pos = str_remove(locus_pos, "\\(.\\)")) %>%
   rename(rep_id = sample)
 
 # Check for implicit missing data --------------------------------------
@@ -239,7 +241,7 @@ reads_by_step
     ## 4 denoisedR     6407467
     ## 5 merged        6340656
     ## 6 nonchim       6329246
-    ## 7 final         5438391
+    ## 7 final         6220699
 
 This table shows the total number of reads after each step in the DADA2
 part of the pipeline plus the final filtering done by `ASV_to_CIGAR.py`.
@@ -248,45 +250,45 @@ volume, which would indicate cause for concern.
 
 # Relationship with Parasitemia
 
-This table shows total sample read counts and parasitemia. Duffy
-negatives have been removed, and the two Ct replicates have been
-averaged.
+This table shows mean total sample read counts and parasitemia. The two
+Ct replicates have been averaged.
 
 ``` r
 # Compute and print sample read count and parasitemia ------------------
-sample_total_read_counts <- rl_read_counts %>%
-  # Remove Duffy negatives
-  filter(DARC_Phenotype != "negative") %>%
-  select(-DARC_Phenotype) %>%
-  group_by(sample_id, lib_name, ct) %>%
+sample_mean_total_read_counts <- rl_read_counts %>%
+  group_by(rep_id, sample_id, lib_name, ct, DARC_Phenotype) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
+  group_by(sample_id, lib_name, ct, DARC_Phenotype) %>%
+  summarize(n_read = mean(n_read), .groups = "drop") %>%
   filter(! is.na(ct)) %>%
+  # Two samples have a suspiciously low Ct
+  filter(ct > 15) %>%
   mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
-sample_total_read_counts %>%
-  arrange(n_read)
+sample_mean_total_read_counts %>%
+  arrange(parasitemia)
 ```
 
-    ## # A tibble: 48 × 5
-    ##    sample_id lib_name    ct n_read parasitemia
-    ##    <chr>     <chr>    <dbl>  <int>       <dbl>
-    ##  1 MH1_C02   LB2       36.0   1674       51.0 
-    ##  2 MH1_A04   LB2       34.7   1700      135.  
-    ##  3 MH2_C01   LB2       38.4   2375        9.97
-    ##  4 MH4_A11   LB2       36.0   3683       51.2 
-    ##  5 MH1_B10   LB2       33.5   5953      303.  
-    ##  6 MH4_B04   LB2       33.6   6003      286.  
-    ##  7 MH2_D04   LB2       34.7  12570      131.  
-    ##  8 MH4_D12   LB2       33.1  19675      411.  
-    ##  9 MH1_A10   LB2       27.4  22987    21531.  
-    ## 10 MH1_A03   LB2       31.4  25493     1343.  
-    ## # ℹ 38 more rows
+    ## # A tibble: 54 × 6
+    ##    sample_id lib_name    ct DARC_Phenotype n_read parasitemia
+    ##    <chr>     <chr>    <dbl> <chr>           <dbl>       <dbl>
+    ##  1 MH2_C01   LB2       38.4 positive        1188.        9.97
+    ##  2 MH1_C02   LB2       36.0 heterozygous    1027        51.0 
+    ##  3 MH4_A11   LB2       36.0 positive        2046.       51.2 
+    ##  4 MH2_D04   LB2       34.7 positive        6337       131.  
+    ##  5 MH1_A04   LB2       34.7 heterozygous    1014.      135.  
+    ##  6 MH2_D11   LB2       34.2 positive       68071       187.  
+    ##  7 MH4_B04   LB2       33.6 positive        3241       286.  
+    ##  8 MH1_B10   LB2       33.5 heterozygous    3251       303.  
+    ##  9 MH4_D12   LB2       33.1 positive       16656       411.  
+    ## 10 MH2_B08   LB2       32.8 positive       43558       499.  
+    ## # ℹ 44 more rows
 
 Even at parasitemias of 10-50 parasites/$\mu$L, more than 1000 reads
 were obtained.
 
 ``` r
 # Plot parasitemia versus sample read count ----------------------------
-sample_total_read_counts %>%
+sample_mean_total_read_counts %>%
   ggplot(mapping = aes(x = parasitemia, y = n_read)) +
   geom_point() +
   geom_smooth(method = "lm", formula = "y ~ x") +
@@ -294,14 +296,15 @@ sample_total_read_counts %>%
   scale_y_continuous(trans = "log10") +
   labs(
     x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
-    y = "Total Reads"
+    y = "Mean Reads per Replicate"
   )
 ```
 
 ![](/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
 
-This scatterplot shows the relationship between parasitemia and total
-read count obtained for each sample. Both axes are $log_{10}$ scaled.
+This scatterplot shows the relationship between parasitemia and mean
+total read count obtained for each sample. Both axes are $log_{10}$
+scaled.
 
 The fitted linear relationship suggests that at a parasitemia of 100
 parasites/$\mu$L one can expect to obtain about 10,000 reads. This is
@@ -312,6 +315,6 @@ are evenly distributed across the panel.
 # Save data for publication figures ------------------------------------
 sl_mean_read_counts %>%
   write_csv(out$sl_read_counts)
-sample_total_read_counts %>%
+sample_mean_total_read_counts %>%
   write_csv(out$s_read_counts_parasitemia)
 ```
