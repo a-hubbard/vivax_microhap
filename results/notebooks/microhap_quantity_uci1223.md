@@ -147,9 +147,8 @@ related to parasitemia.
 ### Sample Means
 
 ``` r
-read_count_heatmap_bysample <- function(reads, loi) {
+read_count_heatmap_bysample <- function(reads) {
   reads %>%
-    filter(lib_name == loi) %>%
     ggplot(mapping = aes(x = locus, y = sample_id, fill = n_read)) +
     geom_tile() +
     scale_fill_fermenter(
@@ -157,7 +156,7 @@ read_count_heatmap_bysample <- function(reads, loi) {
       name = "Reads", 
       breaks = c(10, 100, 1000, 2000)
     ) +
-    labs(x = "Locus", y = "Sample", title = loi) +
+    labs(x = "Locus", y = "Sample") +
     theme(
       axis.text.x = element_text(angle = 60, hjust = 1), 
       legend.position = "bottom", 
@@ -165,23 +164,28 @@ read_count_heatmap_bysample <- function(reads, loi) {
     )
 }
 
+# Remove samples with missing or implausible Ct values -----------------
+rl_read_counts <- rl_read_counts %>%
+  filter(! is.na(ct)) %>%
+  # Two samples have a suspiciously low Ct
+  filter(ct > 15)
+
 # Compute mean read counts for each sample/locus -----------------------
 sl_mean_read_counts <- rl_read_counts %>%
   group_by(sample_id, locus, lib_name) %>%
   summarize(n_read = mean(n_read), .groups = "drop")
 
 # Plot reads by sample and locus ---------------------------------------
-for (l in unique(sl_mean_read_counts$lib_name)) {
-  sl_mean_read_counts %>%
-    read_count_heatmap_bysample(l) %>%
-    print()
-}
+sl_mean_read_counts %>%
+  read_count_heatmap_bysample() %>%
+  print()
 ```
 
-<img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-2-1.png" width="100%" /><img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-2-2.png" width="100%" /><img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-2-3.png" width="100%" />
+<img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-2-1.png" width="100%" />
 
 These heatmaps show the mean number of reads for each sample-locus
-combination. Once again, a separate plot was made for each library.
+combination. Samples with missing or implausibly low Ct values have been
+removed.
 
 # Filtering at Each Step
 
@@ -241,7 +245,7 @@ reads_by_step
     ## 4 denoisedR     6407467
     ## 5 merged        6340656
     ## 6 nonchim       6329246
-    ## 7 final         6220699
+    ## 7 final              NA
 
 This table shows the total number of reads after each step in the DADA2
 part of the pipeline plus the final filtering done by `ASV_to_CIGAR.py`.
@@ -260,9 +264,6 @@ sample_mean_total_read_counts <- rl_read_counts %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
   group_by(sample_id, lib_name, ct, DARC_Phenotype) %>%
   summarize(n_read = mean(n_read), .groups = "drop") %>%
-  filter(! is.na(ct)) %>%
-  # Two samples have a suspiciously low Ct
-  filter(ct > 15) %>%
   mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
 sample_mean_total_read_counts %>%
   arrange(parasitemia)

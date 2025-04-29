@@ -71,6 +71,7 @@ localrules:
     filter4popgen, 
     analyze_relatedness, 
     plot_panel_target_metrics, 
+    plot_read_counts_by_rep_locus, 
     plot_mean_het_by_pop, 
     plot_sample_rel, 
     rel_heatmaps, 
@@ -107,6 +108,7 @@ nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
 figdir = os.path.join("results", "figs")
 figs = {
     "panel_target_metrics": "fig1", 
+    "readcount_heatmap": "suppfig1", 
     "mean_het_by_pop": "suppfig2", 
     "rel_hist": "suppfig3", 
     "rel_heatmaps_country": "fig3", 
@@ -1114,6 +1116,21 @@ rule plot_panel_target_metrics:
     shell: 
         "Rscript {input.code} --window_stats {input.window_stats} --targets "
         "{input.targets} --out_base {params.basename}"
+rule plot_read_counts_by_rep_locus:
+    input:
+        read_counts = uci1223_sl_read_counts, 
+        code = os.path.join("workflow", "scripts", "readcount_heatmap.R")
+    output: 
+        multiext(
+            os.path.join(figdir,figs["readcount_heatmap"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} "
+        "--read_counts {input.read_counts} "
+        "--out_base {params.basename}"
 rule plot_mean_het_by_pop:
     input:
         mh_data_gd = mg_microhap_filtered4popgen_gd, 

@@ -178,9 +178,8 @@ Duffy positive individuals, which is presumably related to parasitemia.
 ### Sample Means
 
 ```{r fig.width = 15, fig.height = 11, out.width = "100%"}
-read_count_heatmap_bysample <- function(reads, loi) {
+read_count_heatmap_bysample <- function(reads) {
   reads %>%
-    filter(lib_name == loi) %>%
     ggplot(mapping = aes(x = locus, y = sample_id, fill = n_read)) +
     geom_tile() +
     scale_fill_fermenter(
@@ -188,7 +187,7 @@ read_count_heatmap_bysample <- function(reads, loi) {
       name = "Reads", 
       breaks = c(10, 100, 1000, 2000)
     ) +
-    labs(x = "Locus", y = "Sample", title = loi) +
+    labs(x = "Locus", y = "Sample") +
     theme(
       axis.text.x = element_text(angle = 60, hjust = 1), 
       legend.position = "bottom", 
@@ -196,21 +195,25 @@ read_count_heatmap_bysample <- function(reads, loi) {
     )
 }
 
+# Remove samples with missing or implausible Ct values -----------------
+rl_read_counts <- rl_read_counts %>%
+  filter(! is.na(ct)) %>%
+  # Two samples have a suspiciously low Ct
+  filter(ct > 15)
+
 # Compute mean read counts for each sample/locus -----------------------
 sl_mean_read_counts <- rl_read_counts %>%
   group_by(sample_id, locus, lib_name) %>%
   summarize(n_read = mean(n_read), .groups = "drop")
 
 # Plot reads by sample and locus ---------------------------------------
-for (l in unique(sl_mean_read_counts$lib_name)) {
-  sl_mean_read_counts %>%
-    read_count_heatmap_bysample(l) %>%
-    print()
-}
+sl_mean_read_counts %>%
+  read_count_heatmap_bysample() %>%
+  print()
 ```
 
 These heatmaps show the mean number of reads for each sample-locus combination.
-Once again, a separate plot was made for each library.
+Samples with missing or implausibly low Ct values have been removed.
 
 # Filtering at Each Step
 
@@ -278,9 +281,6 @@ sample_mean_total_read_counts <- rl_read_counts %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
   group_by(sample_id, lib_name, ct, DARC_Phenotype) %>%
   summarize(n_read = mean(n_read), .groups = "drop") %>%
-  filter(! is.na(ct)) %>%
-  # Two samples have a suspiciously low Ct
-  filter(ct > 15) %>%
   mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
 sample_mean_total_read_counts %>%
   arrange(parasitemia)
