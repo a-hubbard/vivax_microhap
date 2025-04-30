@@ -195,7 +195,7 @@ poppr::poppr(mh_data_gd) %>%
     ## 1       Krong Pa  Vietnam 18  15 0.417 0.89
     ## 2          Dak O  Vietnam  9   9 0.422 1.00
     ## 3     Binh Phuoc  Vietnam  8   8 0.495 1.00
-    ## 4     Ho Chi Min  Vietnam 18  17 0.404 0.97
+    ## 4    Ho Chi Minh  Vietnam 18  17 0.404 0.97
     ## 5 Oddar Meanchey Cambodia 19  19 0.438 1.00
 
 As at the coarser levels of aggregation, we see that the sites in

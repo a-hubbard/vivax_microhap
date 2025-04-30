@@ -39,7 +39,7 @@ mean_het_boxplot <- function(gendata, pop_level) {
   } else if (pop_level == "Site") {
     sites_of_interest <- c(
       "Oddar Meanchey", 
-      "Ho Chi Min", 
+      "Ho Chi Minh", 
       "Binh Phuoc", 
       "Dak O", 
       "Krong Pa"

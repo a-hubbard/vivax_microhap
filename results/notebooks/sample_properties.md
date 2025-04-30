@@ -179,6 +179,10 @@ sample_info_filterbyyear %>%
     ## # ℹ 19 more rows
 
 ``` r
+# Change spelling of Ho Chi Minh ---------------------------------------
+sample_info_filterbyyear <- sample_info_filterbyyear %>%
+  mutate(Site = str_replace(Site, "Ho Chi Min", "Ho Chi Minh"))
+
 # Write sample information to disk -------------------------------------
 sample_info_filterbyyear %>%
   select(sample_id) %>%

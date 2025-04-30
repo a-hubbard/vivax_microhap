@@ -126,18 +126,18 @@ if (length(loci_w_gaps > 0)) {
 
 # Read and join sample metadata ----------------------------------------
 sample_metadata <- read_csv(
-  arg$sample_metadata, 
-  col_types = cols(
-    .default = col_character(), 
-    Lat = col_double(), 
-    Long = col_double(), 
-    Year = col_integer(), 
-    `% callable` = col_double(), 
-    Fws = col_double(), 
-    F_MISS = col_double()
-  ), 
-  progress = FALSE
-)
+    arg$sample_metadata, 
+    col_types = cols(
+      .default = col_character(), 
+      Lat = col_double(), 
+      Long = col_double(), 
+      Year = col_integer(), 
+      `% callable` = col_double(), 
+      Fws = col_double(), 
+      F_MISS = col_double()
+    ), 
+    progress = FALSE
+  )
 mh_data <- mh_data %>%
   left_join(sample_metadata, by = "sample_id")
 

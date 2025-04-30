@@ -338,7 +338,7 @@ write_csv(site_rel, out$site_rel_revcombs)
 # Convert site fields to factors to control sorting --------------------
 site_levels <- c(
   "Oddar Meanchey", 
-  "Ho Chi Min", 
+  "Ho Chi Minh", 
   "Binh Phuoc", 
   "Dak O", 
   "Krong Pa"
@@ -358,7 +358,7 @@ relatedness_heatmap(site_rel, "site_a", "site_b", "mean_r")
 ![](/users/ahubba16/projects/vivax_microhap/results/notebooks/relatedness_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->
 
 This heatmap shows the mean relatedness within and between the
-geographies from Southeast Asia. From this we can see that Ho Chi Min
+geographies from Southeast Asia. From this we can see that Ho Chi Minh
 and Dak O have high within-site relatedness and are also related to each
 other.
 
@@ -380,15 +380,16 @@ from roughly 0.4 to 0.7, this metric provides a somewhat improved
 ability to discriminate between geography pairs versus mean relatedness.
 
 Based on this figure, we can extend the conclusion from the mean
-relatedness version to say that Ho Chi Min and Dak O generally have high
-relatedness with everything else, and Binh Phuoc is relatively isolated.
+relatedness version to say that Ho Chi Minh and Dak O generally have
+high relatedness with everything else, and Binh Phuoc is relatively
+isolated.
 
 The patterns evident in this figure do not conform to a simple pattern
 of isolation-by-distance. They might be partially explained by the fact
-that Ho Chi Min is a large city with lots of travel in and out, but this
-is not true for Dak O. Further study of the characteristics of these
-settlements and the patterns of human movement in the area is advisable
-to help explain these patterns.
+that Ho Chi Minh is a large city with lots of travel in and out, but
+this is not true for Dak O. Further study of the characteristics of
+these settlements and the patterns of human movement in the area is
+advisable to help explain these patterns.
 
 ``` r
 site_rel %>%

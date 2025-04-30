@@ -20,7 +20,7 @@ opts <- list(
 )
 arg <- parse_args(OptionParser(option_list = opts))
 
-rel_heatmap <- function(rel_tib, metric) {
+rel_heatmap <- function(rel_tib, metric, pop_lvl) {
   if (identical(metric, "mean_r")) {
     fill_scale <- scale_fill_distiller(
       palette = "YlGnBu", 
@@ -32,6 +32,10 @@ rel_heatmap <- function(rel_tib, metric) {
       name = "Frac. High r"
     )
   }
+  # if (identical(pop_lvl, "site")) {
+  #   theme_tweaks <- theme(
+  #     legend.key.width = unit(1, "in")
+  #   )
   ggplot(
       data = rel_tib, 
       mapping = aes(x = group_a, y = group_b, fill = .data[[metric]])
@@ -44,7 +48,7 @@ rel_heatmap <- function(rel_tib, metric) {
     theme(
       axis.text.x = element_text(angle = 60, hjust = 1), 
       legend.position = "bottom", 
-      legend.key.width = unit(0.25, "in")
+      legend.key.width = unit(0.35, "in")
     )
 }
 
@@ -75,7 +79,7 @@ if (identical(arg$scale, "site")) {
 if (identical(arg$scale, "site")) {
   group_order <- c(
     "Oddar Meanchey", 
-    "Ho Chi Min", 
+    "Ho Chi Minh", 
     "Binh Phuoc", 
     "Dak O", 
     "Krong Pa"
@@ -103,7 +107,7 @@ if (identical(arg$scale, "site")) {
       rel_heatmap(rel, "mean_r") | rel_heatmap(rel, "frac_high_r")
     ) +
     plot_annotation(tag_levels = "A")
-  w <- 7.5
+  w <- 8
   h <- 4.5
 } else if (identical(arg$scale, "country")) {
   fig <- rel_heatmap(rel, "mean_r")
