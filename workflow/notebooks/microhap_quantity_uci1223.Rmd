@@ -195,14 +195,10 @@ read_count_heatmap_bysample <- function(reads) {
     )
 }
 
-# Remove samples with missing or implausible Ct values -----------------
-rl_read_counts <- rl_read_counts %>%
-  filter(! is.na(ct)) %>%
-  # Two samples have a suspiciously low Ct
-  filter(ct > 15)
-
 # Compute mean read counts for each sample/locus -----------------------
 sl_mean_read_counts <- rl_read_counts %>%
+  filter(DARC_Phenotype != "negative") %>%
+  select(-DARC_Phenotype) %>%
   group_by(sample_id, locus, lib_name) %>%
   summarize(n_read = mean(n_read), .groups = "drop")
 
@@ -213,7 +209,7 @@ sl_mean_read_counts %>%
 ```
 
 These heatmaps show the mean number of reads for each sample-locus combination.
-Samples with missing or implausibly low Ct values have been removed.
+Samples from Duffy negative individuals have been removed.
 
 # Filtering at Each Step
 
@@ -272,14 +268,17 @@ indicate cause for concern.
 # Relationship with Parasitemia
 
 This table shows mean total sample read counts and parasitemia. The two Ct 
-replicates have been averaged.
+replicates have been averaged, and samples from Duffy negative individuals have
+been removed.
 
 ```{r}
 # Compute and print sample read count and parasitemia ------------------
 sample_mean_total_read_counts <- rl_read_counts %>%
-  group_by(rep_id, sample_id, lib_name, ct, DARC_Phenotype) %>%
+  filter(DARC_Phenotype != "negative") %>%
+  select(-DARC_Phenotype) %>%
+  group_by(rep_id, sample_id, lib_name, ct) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
-  group_by(sample_id, lib_name, ct, DARC_Phenotype) %>%
+  group_by(sample_id, lib_name, ct) %>%
   summarize(n_read = mean(n_read), .groups = "drop") %>%
   mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
 sample_mean_total_read_counts %>%

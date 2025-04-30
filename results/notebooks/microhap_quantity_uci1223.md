@@ -164,14 +164,10 @@ read_count_heatmap_bysample <- function(reads) {
     )
 }
 
-# Remove samples with missing or implausible Ct values -----------------
-rl_read_counts <- rl_read_counts %>%
-  filter(! is.na(ct)) %>%
-  # Two samples have a suspiciously low Ct
-  filter(ct > 15)
-
 # Compute mean read counts for each sample/locus -----------------------
 sl_mean_read_counts <- rl_read_counts %>%
+  filter(DARC_Phenotype != "negative") %>%
+  select(-DARC_Phenotype) %>%
   group_by(sample_id, locus, lib_name) %>%
   summarize(n_read = mean(n_read), .groups = "drop")
 
@@ -184,8 +180,7 @@ sl_mean_read_counts %>%
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/microhap_quantity_uci1223_files/figure-gfm/unnamed-chunk-2-1.png" width="100%" />
 
 These heatmaps show the mean number of reads for each sample-locus
-combination. Samples with missing or implausibly low Ct values have been
-removed.
+combination. Samples from Duffy negative individuals have been removed.
 
 # Filtering at Each Step
 
@@ -245,7 +240,7 @@ reads_by_step
     ## 4 denoisedR     6407467
     ## 5 merged        6340656
     ## 6 nonchim       6329246
-    ## 7 final              NA
+    ## 7 final         6220699
 
 This table shows the total number of reads after each step in the DADA2
 part of the pipeline plus the final filtering done by `ASV_to_CIGAR.py`.
@@ -255,34 +250,37 @@ volume, which would indicate cause for concern.
 # Relationship with Parasitemia
 
 This table shows mean total sample read counts and parasitemia. The two
-Ct replicates have been averaged.
+Ct replicates have been averaged, and samples from Duffy negative
+individuals have been removed.
 
 ``` r
 # Compute and print sample read count and parasitemia ------------------
 sample_mean_total_read_counts <- rl_read_counts %>%
-  group_by(rep_id, sample_id, lib_name, ct, DARC_Phenotype) %>%
+  filter(DARC_Phenotype != "negative") %>%
+  select(-DARC_Phenotype) %>%
+  group_by(rep_id, sample_id, lib_name, ct) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
-  group_by(sample_id, lib_name, ct, DARC_Phenotype) %>%
+  group_by(sample_id, lib_name, ct) %>%
   summarize(n_read = mean(n_read), .groups = "drop") %>%
   mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
 sample_mean_total_read_counts %>%
   arrange(parasitemia)
 ```
 
-    ## # A tibble: 54 × 6
-    ##    sample_id lib_name    ct DARC_Phenotype n_read parasitemia
-    ##    <chr>     <chr>    <dbl> <chr>           <dbl>       <dbl>
-    ##  1 MH2_C01   LB2       38.4 positive        1188.        9.97
-    ##  2 MH1_C02   LB2       36.0 heterozygous    1027        51.0 
-    ##  3 MH4_A11   LB2       36.0 positive        2046.       51.2 
-    ##  4 MH2_D04   LB2       34.7 positive        6337       131.  
-    ##  5 MH1_A04   LB2       34.7 heterozygous    1014.      135.  
-    ##  6 MH2_D11   LB2       34.2 positive       68071       187.  
-    ##  7 MH4_B04   LB2       33.6 positive        3241       286.  
-    ##  8 MH1_B10   LB2       33.5 heterozygous    3251       303.  
-    ##  9 MH4_D12   LB2       33.1 positive       16656       411.  
-    ## 10 MH2_B08   LB2       32.8 positive       43558       499.  
-    ## # ℹ 44 more rows
+    ## # A tibble: 48 × 5
+    ##    sample_id lib_name    ct n_read parasitemia
+    ##    <chr>     <chr>    <dbl>  <dbl>       <dbl>
+    ##  1 MH2_C01   LB2       38.4  1188.        9.97
+    ##  2 MH1_C02   LB2       36.0  1027        51.0 
+    ##  3 MH4_A11   LB2       36.0  2046.       51.2 
+    ##  4 MH2_D04   LB2       34.7  6337       131.  
+    ##  5 MH1_A04   LB2       34.7  1014.      135.  
+    ##  6 MH2_D11   LB2       34.2 68071       187.  
+    ##  7 MH4_B04   LB2       33.6  3241       286.  
+    ##  8 MH1_B10   LB2       33.5  3251       303.  
+    ##  9 MH4_D12   LB2       33.1 16656       411.  
+    ## 10 MH2_B08   LB2       32.8 43558       499.  
+    ## # ℹ 38 more rows
 
 Even at parasitemias of 10-50 parasites/$\mu$L, more than 1000 reads
 were obtained.
