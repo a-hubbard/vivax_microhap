@@ -50,6 +50,7 @@ localrules:
     asv2cigar_uci1223, 
     assess_microhap_quantity_uci1223, 
     tidy_microhap_uci1223, 
+    format_sra_sample_metadata, 
     dwnld_ref_gff, 
     unzip_ref_gff, 
     subset_annot, 
@@ -126,6 +127,7 @@ locus_metadata = os.path.join("results", "locus_metadata.tsv")
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
 mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
+sra_sample_metadata = os.path.join("results", "uci1223_sra_metadata.tsv")
 rule all:
     input:
         expand("{nb}.{ext}", nb=list(notebooks.values()), ext=["pdf","md"]), 
@@ -135,7 +137,8 @@ rule all:
         figs_tables_doc_flag, 
         expand(supp_text_flag_template, supptext=list(supp_texts.values())), 
         locus_metadata, 
-        mg_microhap_aligned_fasta_dir
+        mg_microhap_aligned_fasta_dir, 
+        sra_sample_metadata
 # For others attempting to run the pipeline on their own machine
 rule replicate:
     input:
@@ -151,7 +154,8 @@ rule replicate:
             os.path.join(supp_texts_dir,"{supptext}.pdf"), 
             supptext=list(supp_texts.values())), 
         figs_tables_doc, 
-        locus_metadata
+        locus_metadata, 
+        sra_sample_metadata
 
 # Reformat and filter primers
 sd_id_file = os.path.join("resources", "id_file.txt")
@@ -773,6 +777,18 @@ rule tidy_microhap_uci1223:
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
         """
+
+# Format UCI 12/23 data for SRA upload
+rule format_sra_sample_metadata:
+    input:
+        uci1223_rep_metadata = uci1223_rep_metadata, 
+        code = os.path.join("workflow", "scripts", "format_sra_metadata.R")
+    output:
+        sra_sample_metadata
+    shell:
+        "Rscript {input.code} "
+        "--uci1223_rep_metadata {input.uci1223_rep_metadata} "
+        "--sra_metadata {output}"
 
 # Filter and concatenate MalariaGEN VCFs
 malariagen_orig_dir = os.path.join("resources", "MalariaGEN", "orig")
