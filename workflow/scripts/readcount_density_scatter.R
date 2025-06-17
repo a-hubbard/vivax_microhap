@@ -27,6 +27,9 @@ if (interactive()) {
   )
 }
 
+# Set default ggplot2 theme
+theme_set(theme_bw())
+
 # Read in read counts and parasitemia values ---------------------------
 sample_mean_total_read_counts <- read_csv(
     arg$s_read_counts_parasitemia, 
@@ -50,7 +53,7 @@ fig <- sample_mean_total_read_counts %>%
     x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
     y = "Mean Reads per Replicate"
   )
-w <- 4.5
+w <- 5
 h <- 4.5
 ggsave(
   str_c(arg$out_base, ".pdf"), 
