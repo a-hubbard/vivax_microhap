@@ -137,6 +137,8 @@ fig <- ggraph::ggraph(network) +
   labs(size = "No. of Samples") +
   theme(
     legend.position = "bottom", 
+    axis.text = element_text(), 
+    axis.ticks = element_line(), 
     panel.background = element_rect(fill = "lightskyblue1"), 
     panel.border = element_rect(
       color = "black", 
