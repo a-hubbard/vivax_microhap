@@ -72,6 +72,7 @@ localrules:
     filter4popgen, 
     analyze_relatedness, 
     plot_panel_target_metrics, 
+    plot_read_counts_vs_parasitemia, 
     plot_read_counts_by_rep_locus, 
     plot_mean_het_by_pop, 
     plot_sample_rel, 
@@ -110,6 +111,7 @@ figdir = os.path.join("results", "figs")
 figs = {
     "panel_target_metrics": "fig1", 
     "readcount_heatmap": "suppfig1", 
+    "readcount_density_scatter": "fig2", 
     "mean_het_by_pop": "suppfig2", 
     "rel_hist": "suppfig3", 
     "rel_heatmaps_country": "fig3", 
@@ -1132,6 +1134,23 @@ rule plot_panel_target_metrics:
     shell: 
         "Rscript {input.code} --window_stats {input.window_stats} --targets "
         "{input.targets} --out_base {params.basename}"
+rule plot_read_counts_vs_parasitemia:
+    input:
+        s_read_counts_parasitemia = uci1223_s_read_counts_parasitemia, 
+        code = os.path.join(
+            "workflow", 
+            "scripts", 
+            "readcount_density_scatter.R")
+    output: 
+        multiext(os.path.join(figdir,figs["readcount_density_scatter"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} "
+        "--s_read_counts_parasitemia {input.s_read_counts_parasitemia} "
+        "--out_base {params.basename}"
 rule plot_read_counts_by_rep_locus:
     input:
         read_counts = uci1223_sl_read_counts, 

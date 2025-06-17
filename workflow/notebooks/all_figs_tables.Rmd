@@ -24,28 +24,16 @@ opts_chunk$set(echo = FALSE, fig.align = "center", out.width = "100%")
 include_graphics("../../results/figs/fig1.pdf")
 ```
 
-# Figure 2
-
-```{r}
-include_graphics("../../results/figs/fig2.pdf")
-```
-
-# Figure 3
-
-```{r}
-include_graphics("../../results/figs/fig3.pdf")
-```
-
-# Figure 4
-
-```{r}
-include_graphics("../../results/figs/fig4.pdf")
-```
-
 # Supplemental Figure 1
 
 ```{r}
 include_graphics("../../results/figs/suppfig1.pdf")
+```
+
+# Figure 2
+
+```{r}
+include_graphics("../../results/figs/fig2.pdf")
 ```
 
 # Supplemental Figure 2
@@ -60,10 +48,10 @@ include_graphics("../../results/figs/suppfig2.pdf")
 include_graphics("../../results/figs/suppfig3.pdf")
 ```
 
-# Figure 5
+# Figure 3
 
-```{r out.width = "80%"}
-include_graphics("../../results/figs/fig5.pdf")
+```{r}
+include_graphics("../../results/figs/fig3.pdf")
 ```
 
 # Supplemental Figure 4
@@ -72,8 +60,8 @@ include_graphics("../../results/figs/fig5.pdf")
 include_graphics("../../results/figs/suppfig4.pdf")
 ```
 
-# Figure 6
+# Figure 4
 
-```{r out.width = "90%"}
-include_graphics("../../results/figs/fig6.pdf")
+```{r}
+include_graphics("../../results/figs/fig4.pdf")
 ```
