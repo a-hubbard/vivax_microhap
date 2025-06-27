@@ -16,8 +16,8 @@ opts <- list(
     help = "Excel file containing replicate metadata"
   ), 
   make_option(
-    "--sra_metadata", 
-    help = "Path of TSV file to contain SRA metadata"
+    "--biosample_attributes", 
+    help = "Path of TSV file to contain SRA biosample attributes"
   )
 )
 arg <- parse_args(OptionParser(option_list = opts))
@@ -26,7 +26,7 @@ if (interactive()) {
   arg <- list(
     uci1223_rep_metadata = 
       "../../resources/MH_template__LB_EHS_dz07242024_to_liz.xlsx", 
-    sra_metadata = "../../results/uci1223_sra_metadata.tsv"
+    biosample_attributes = "../../results/uci1223_biosample_attributes.tsv"
   )
 }
 
@@ -65,18 +65,10 @@ rep_metadata %>%
       "Mass blood survey"
     )
   ) %>%
-  mutate(attribute_package = "Pathogen.cl") %>%
   mutate(organism = "Plasmodium vivax") %>%
   mutate(isolate = sample_name) %>%
   mutate(collected_by = "Jimma University, Ethiopia") %>%
   mutate(collection_date = "2018-10") %>%
-  mutate(
-    isolation_source = if_else(
-      sampling_method == "Passive case detection", 
-      "Health facility", 
-      "Home"
-    )
-  ) %>%
   mutate(
     lat_lon = if_else(
       geo_loc_name == "Ethiopia:Arjo-Didessa sugarcane plantation", 
@@ -85,4 +77,5 @@ rep_metadata %>%
     )
   ) %>%
   mutate(host = "Homo sapiens") %>%
-  write_tsv(arg$sra_metadata)
+  mutate(sample_type = "Dried blood spot") %>%
+  write_tsv(arg$biosample_attributes)

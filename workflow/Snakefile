@@ -50,7 +50,7 @@ localrules:
     asv2cigar_uci1223, 
     assess_microhap_quantity_uci1223, 
     tidy_microhap_uci1223, 
-    format_sra_sample_metadata, 
+    format_biosample_attributes, 
     dwnld_ref_gff, 
     unzip_ref_gff, 
     subset_annot, 
@@ -129,7 +129,9 @@ locus_metadata = os.path.join("results", "locus_metadata.tsv")
 microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
 mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
-sra_sample_metadata = os.path.join("results", "uci1223_sra_metadata.tsv")
+biosample_attributes = os.path.join(
+    "results", 
+    "uci1223_biosample_attributes.tsv")
 rule all:
     input:
         expand("{nb}.{ext}", nb=list(notebooks.values()), ext=["pdf","md"]), 
@@ -140,7 +142,7 @@ rule all:
         expand(supp_text_flag_template, supptext=list(supp_texts.values())), 
         locus_metadata, 
         mg_microhap_aligned_fasta_dir, 
-        sra_sample_metadata
+        biosample_attributes
 # For others attempting to run the pipeline on their own machine
 rule replicate:
     input:
@@ -157,7 +159,7 @@ rule replicate:
             supptext=list(supp_texts.values())), 
         figs_tables_doc, 
         locus_metadata, 
-        sra_sample_metadata
+        biosample_attributes
 
 # Reformat and filter primers
 sd_id_file = os.path.join("resources", "id_file.txt")
@@ -781,16 +783,19 @@ rule tidy_microhap_uci1223:
         """
 
 # Format UCI 12/23 data for SRA upload
-rule format_sra_sample_metadata:
+rule format_biosample_attributes:
     input:
         uci1223_rep_metadata = uci1223_rep_metadata, 
-        code = os.path.join("workflow", "scripts", "format_sra_metadata.R")
+        code = os.path.join(
+            "workflow", 
+            "scripts", 
+            "format_biosample_attributes.R")
     output:
-        sra_sample_metadata
+        biosample_attributes
     shell:
         "Rscript {input.code} "
         "--uci1223_rep_metadata {input.uci1223_rep_metadata} "
-        "--sra_metadata {output}"
+        "--biosample_attributes {output}"
 
 # Filter and concatenate MalariaGEN VCFs
 malariagen_orig_dir = os.path.join("resources", "MalariaGEN", "orig")
