@@ -88,9 +88,7 @@ sample_info_initialfilter %>%
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/sample_properties_files/figure-gfm/unnamed-chunk-2-1.png" width="100%" />
 
-This bar plot shows the sample count by year. Some samples in the
-dataset are quite old. This is impressive, but we wish to focus on
-recent samples in this study.
+This bar plot shows the sample count by year.
 
 ``` r
 # Zoom in on recent data -----------------------------------------------
@@ -98,27 +96,50 @@ sample_info_initialfilter %>%
   filter(Year >= 2010) %>%
   ggplot(mapping = aes(x = Year)) +
   geom_bar() +
+  facet_wrap(vars(Population)) +
   labs(y = "No. of Samples")
 ```
 
 <img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/sample_properties_files/figure-gfm/unnamed-chunk-3-1.png" width="100%" />
 
 This plot shows the same thing, with samples from before 2010 removed.
-We want to avoid analyzing a large span of years, to focus on genetic
-relatedness between geographic locations, not through time. From this
-plot, we can see that the years 2013 through 2016 have the highest
-concentration of data. However, we judge four years to still be too
-great a range of time, so we select the last two years from this period,
-2015 and 2016, for further analysis.
+In addition, the plots have been facetted by region.
+
+From this figure, it seems that Africa, Southeast Asia, and Latin
+America may all have suitably dense sample sets. These are visualized in
+more detail below.
+
+``` r
+# Zoom in on recent data -----------------------------------------------
+sample_info_initialfilter %>%
+  filter(Year >= 2010, Population %in% c("AF", "WSEA", "ESEA", "LAM")) %>%
+  ggplot(mapping = aes(x = Year, fill = Country)) +
+  geom_bar(position = "stack") +
+  facet_wrap(vars(Population)) +
+  labs(y = "No. of Samples")
+```
+
+<img src="/users/ahubba16/projects/vivax_microhap/results/notebooks/sample_properties_files/figure-gfm/unnamed-chunk-4-1.png" width="100%" />
+
+As above, except limited to Africa, Southeast Asia, and Latin America.
+Bars are now stacked, with colors scaled by country.
+
+From this, three clusters in space and time present themselves as likely
+populations for paneljudge analysis: Vietnam and Cambodia in 2015 and
+2016; Ethiopia in 2013; and Brazil, Colombia, and Peru in 2013 and 2014.
 
 ``` r
 sample_info_filterbyyear <- sample_info_initialfilter %>%
-  filter(Year > 2014, Year < 2017)
+  filter(
+    (Population == "ESEA" & Year %in% c(2015, 2016)) |
+    (Population == "LAM" & Year %in% c(2013, 2014)) |
+    (Country == "Ethiopia" & Year == 2013)
+  )
 ```
 
 # Sample Sizes
 
-In the final analysis set, this leaves us with a sample size of 185. The
+In the final analysis set, this leaves us with a sample size of 164. The
 sample sizes for each site are given in the following table:
 
 ``` r
@@ -128,28 +149,25 @@ sample_info_filterbyyear %>%
   summarize(n_samp = n(), .groups = "drop")
 ```
 
-    ## # A tibble: 19 × 3
-    ##    Country     Site            n_samp
-    ##    <chr>       <chr>            <int>
-    ##  1 Afghanistan Jalalabad           12
-    ##  2 Afghanistan Laghman              4
-    ##  3 Brazil      Manaus               3
-    ##  4 Cambodia    Oddar Meanchey      19
-    ##  5 Colombia    Choco                3
-    ##  6 Colombia    Santa Cecilia        3
-    ##  7 Colombia    Tierralta           17
-    ##  8 Ethiopia    Amhara              15
-    ##  9 Ethiopia    Gondar               4
-    ## 10 Ethiopia    Jimma               17
-    ## 11 Indonesia   Papua Indonesia     18
-    ## 12 Peru        Iquitos              6
-    ## 13 Philippines Rio Tuba             2
-    ## 14 Thailand    Mae Sot              4
-    ## 15 Thailand    Umphang              5
-    ## 16 Vietnam     Binh Phuoc           8
-    ## 17 Vietnam     Dak O                9
-    ## 18 Vietnam     Ho Chi Min          18
-    ## 19 Vietnam     Krong Pa            18
+    ## # A tibble: 16 × 3
+    ##    Country  Site                                            n_samp
+    ##    <chr>    <chr>                                            <int>
+    ##  1 Brazil   Manaus                                               8
+    ##  2 Cambodia Oddar Meanchey                                      19
+    ##  3 Colombia Antioquia                                            1
+    ##  4 Colombia Buenaventura                                         3
+    ##  5 Colombia Choco                                                7
+    ##  6 Colombia Colombia                                             2
+    ##  7 Colombia Cordoba                                              1
+    ##  8 Colombia Tierralta                                           16
+    ##  9 Colombia Tumaco                                               2
+    ## 10 Ethiopia Oromia                                              26
+    ## 11 Ethiopia South Nations Nationalities and Peoples' Region     23
+    ## 12 Peru     Delta 1                                              3
+    ## 13 Vietnam  Binh Phuoc                                           8
+    ## 14 Vietnam  Dak O                                                9
+    ## 15 Vietnam  Ho Chi Min                                          18
+    ## 16 Vietnam  Krong Pa                                            18
 
 # Study Information
 
@@ -163,20 +181,29 @@ sample_info_filterbyyear %>%
   summarize(n_samp = n(), .groups = "drop")
 ```
 
-    ## # A tibble: 29 × 5
-    ##    Study              Site       Country   Year n_samp
-    ##    <chr>              <chr>      <chr>    <int>  <int>
-    ##  1 1098-PF-ET-GOLASSA Amhara     Ethiopia  2015     15
-    ##  2 1128-PV-MULTI-GSK  Gondar     Ethiopia  2015      1
-    ##  3 1128-PV-MULTI-GSK  Gondar     Ethiopia  2016      3
-    ##  4 1128-PV-MULTI-GSK  Ho Chi Min Vietnam   2015     10
-    ##  5 1128-PV-MULTI-GSK  Ho Chi Min Vietnam   2016      8
-    ##  6 1128-PV-MULTI-GSK  Iquitos    Peru      2015      3
-    ##  7 1128-PV-MULTI-GSK  Iquitos    Peru      2016      3
-    ##  8 1128-PV-MULTI-GSK  Jimma      Ethiopia  2016      2
-    ##  9 1128-PV-MULTI-GSK  Mae Sot    Thailand  2016      4
-    ## 10 1128-PV-MULTI-GSK  Manaus     Brazil    2015      2
-    ## # ℹ 19 more rows
+    ## # A tibble: 20 × 5
+    ##    Study                     Site                           Country  Year n_samp
+    ##    <chr>                     <chr>                          <chr>   <int>  <int>
+    ##  1 1098-PF-ET-GOLASSA        Oromia                         Ethiop…  2013     26
+    ##  2 1128-PV-MULTI-GSK         Ho Chi Min                     Vietnam  2015     10
+    ##  3 1128-PV-MULTI-GSK         Ho Chi Min                     Vietnam  2016      8
+    ##  4 1128-PV-MULTI-GSK         Manaus                         Brazil   2014      8
+    ##  5 1128-PV-MULTI-GSK         Oddar Meanchey                 Cambod…  2015     19
+    ##  6 1157-PV-MULTI-PRICE       Antioquia                      Colomb…  2014      1
+    ##  7 1157-PV-MULTI-PRICE       Binh Phuoc                     Vietnam  2015      8
+    ##  8 1157-PV-MULTI-PRICE       Choco                          Colomb…  2014      5
+    ##  9 1157-PV-MULTI-PRICE       Colombia                       Colomb…  2014      2
+    ## 10 1157-PV-MULTI-PRICE       Cordoba                        Colomb…  2014      1
+    ## 11 1157-PV-MULTI-PRICE       Dak O                          Vietnam  2015      4
+    ## 12 1157-PV-MULTI-PRICE       Dak O                          Vietnam  2016      5
+    ## 13 1157-PV-MULTI-PRICE       Krong Pa                       Vietnam  2015     12
+    ## 14 1157-PV-MULTI-PRICE       Krong Pa                       Vietnam  2016      6
+    ## 15 1157-PV-MULTI-PRICE       South Nations Nationalities a… Ethiop…  2013     23
+    ## 16 X0001-PV-MULTI-HUPALO2016 Buenaventura                   Colomb…  2013      3
+    ## 17 X0001-PV-MULTI-HUPALO2016 Choco                          Colomb…  2013      2
+    ## 18 X0001-PV-MULTI-HUPALO2016 Delta 1                        Peru     2013      3
+    ## 19 X0001-PV-MULTI-HUPALO2016 Tierralta                      Colomb…  2013     16
+    ## 20 X0001-PV-MULTI-HUPALO2016 Tumaco                         Colomb…  2013      2
 
 ``` r
 # Change spelling of Ho Chi Minh ---------------------------------------
@@ -201,4 +228,4 @@ sample_info_filterbyyear %>%
     ## Deleting source `../../results/unfiltered_sites.geojson' using driver `GeoJSON'
     ## Writing layer `unfiltered_sites' to data source 
     ##   `../../results/unfiltered_sites.geojson' using driver `GeoJSON'
-    ## Writing 19 features with 3 fields and geometry type Point.
+    ## Writing 16 features with 3 fields and geometry type Point.
