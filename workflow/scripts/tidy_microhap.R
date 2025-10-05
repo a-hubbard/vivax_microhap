@@ -91,9 +91,10 @@ mh_data <- tibble(
 trg_loc_name_key <- read_tsv(
     arg$trg_coords, 
     col_types = cols(.default = col_character()), 
-    col_names = c("chrom", "start_pos", "end_pos", "locus"), 
+    col_names = c("chrom", "start_pos", "end_pos", "locus", "score", "strand"), 
     progress = FALSE
   ) %>%
+  select(-score, -strand) %>%
   unite(coords, start_pos, end_pos, sep = "-") %>%
   unite(trgloc, chrom, coords, sep = ":")
 mh_data <- mh_data %>%
