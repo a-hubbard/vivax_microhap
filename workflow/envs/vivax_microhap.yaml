@@ -33,20 +33,14 @@ dependencies:
   - r-devtools
   - r-optparse
   - r-patchwork
-  - r-sf
-  - r-rnaturalearth
-  - r-rnaturalearthdata
   - r-rstatix
   - r-seqinr
   - bioconductor-biostrings
   - bioconductor-msa
-  - r-ape
-  - r-pegas
-  - r-poppr
-  - r-adegenet
-  - r-ggraph
-  - r-tidygraph
+  # Required for paneljudge R package
+  - r-Rcpp
+  - r-doParallel
+  - r-doRNG
+  - r-foreach
   # Recommended for many R packages
   - r-codetools
-  # Required for R package rnaturalearthhires
-  - r-sp

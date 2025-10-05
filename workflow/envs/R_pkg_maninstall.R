@@ -3,5 +3,4 @@
 # document their existence and as an easy way of creating a record of 
 # the exact versions used (by sourcing this script and calling  
 # sessionInfo()).
-library(dcifer)
-library(rnaturalearthhires)
+library(paneljudge)
