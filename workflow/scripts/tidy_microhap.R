@@ -33,16 +33,18 @@ opts <- list(
 )
 arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
-# arg <- list(
-#   mh_fasta_dir = "../../results/microhap/MalariaGEN/fasta", 
-#   trg_coords = 
-#     "../../results/primer_mapping/captured_seq_coords_good_amp.bed", 
-#   sample_metadata = 
-#     "../../results/MalariaGEN/preprocessed/sample_metadata.csv", 
-#   aligned_haps = "../../results/microhap/MalariaGEN/mg_microhap_aligned.rds", 
-#   out_csv = "../../results/microhap/MalariaGEN/mg_microhap.csv", 
-#   alignments_fasta_dir = "../../results/microhap/MalariaGEN/aligned_fastas"
-# )
+if (interactive()) {
+  arg <- list(
+    mh_fasta_dir = "../../results/microhap/MalariaGEN/fasta", 
+    trg_coords = 
+      "../../results/primer_mapping/captured_seq_coords_good_amp.bed", 
+    sample_metadata = 
+      "../../results/MalariaGEN/preprocessed/sample_metadata.csv", 
+    aligned_haps = "../../results/microhap/MalariaGEN/mg_microhap_aligned.rds", 
+    out_csv = "../../results/microhap/MalariaGEN/mg_microhap.csv", 
+    alignments_fasta_dir = "../../results/microhap/MalariaGEN/aligned_fastas"
+  )
+}
 
 seqlist2tib <- function(seqlist) {
   tibble(seqloc = names(seqlist), hapseq = map_chr(seqlist, pluck, 1))

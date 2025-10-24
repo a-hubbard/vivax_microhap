@@ -1,0 +1,105 @@
+---
+title: Evaluation with paneljudge
+author: Alfred Hubbard
+output:
+  html_notebook: default
+  pdf_document: default
+  github_document: default
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+library(dcifer)
+library(paneljudge)
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(magrittr)
+library(purrr)
+library(readr)
+library(stringr)
+library(tidyr)
+
+# Don't include code in PDF output
+opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+# Set default ggplot2 theme
+theme_set(theme_bw())
+
+# Hardcode parameters. These are not passed as shell arguments because 
+# hardcoded values facilitate development and this document is not 
+# meant to be usable with other projects.
+inp <- list(
+  mh_full = "../../results/microhap/MalariaGEN/mg_microhap.csv"
+)
+```
+
+```{r}
+# Convert allele frequency list to tibble for one target
+onetargetaf_list2tib <- function(onetargetaf) {
+  tibble(seq = names(onetargetaf), freq = unname(onetargetaf))
+}
+
+# Read in microhaplotype data ------------------------------------------
+mh_full <- read_csv(
+    inp$mh_full, 
+    col_types = cols(
+      .default = col_character(), 
+      Lat = col_double(), 
+      Long = col_double(), 
+      Year = col_integer(), 
+      `% callable` = col_double(), 
+      Fws = col_double(), 
+      F_MISS = col_double()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(chrom, locus, sample_id, hapseq, Population) %>%
+  # Filter to diversity loci
+  filter(str_detect(locus, "PvP01"))
+
+# Compute allele frequency with Dcifer ----------------------------------
+# All samples should have a COI of 1
+coi <- rep(1, n_distinct(mh_full$sample_id))
+af_dcifer <- mh_full %>%
+  filter(Population == "AF") %>%
+  dcifer::formatDat(svar = "sample_id", lvar = "locus", avar = "hapseq") %>%
+  dcifer::calcAfreq(coi)
+
+# Convert allele frequency from Dcifer format to matrix ----------------
+af_long <- tibble(
+    target_id = names(af_dcifer), 
+    alleles_freqs = unname(af_dcifer)
+  ) %>%
+  mutate(alleles_freqs = map(alleles_freqs, onetargetaf_list2tib)) %>%
+  unnest(alleles_freqs)
+af_wide <- af_long %>%
+  group_by(target_id) %>%
+  mutate(allele_id = str_c("Allele_", row_number())) %>%
+  ungroup() %>%
+  select(-seq) %>%
+  pivot_wider(names_from = "allele_id", values_from = "freq") %>%
+  mutate(across(-target_id, ~replace_na(.x, 0)))
+af_matrix <- af_wide %>%
+  select(-target_id) %>%
+  as.matrix()
+rownames(af_matrix) <- af_wide$target_id
+
+# Compute effective cardinalities --------------------------------------
+eff_cardinalities_vec <- paneljudge::compute_eff_cardinalities(af_matrix)
+eff_cardinalities_tib <- tibble(
+    target_id = names(eff_cardinalities_vec), 
+    eff_cardinality = unname(eff_cardinalities_vec)
+  )
+marker_metrics <- af_long %>%
+  group_by(target_id) %>%
+  summarize(cardinality = n_distinct(seq), .groups = "drop") %>%
+  left_join(eff_cardinalities_tib, by = "target_id")
+
+# Visualize cardinality versus effective cardinality -------------------
+marker_metrics %>%
+  ggplot(mapping = aes(x = cardinality, y = eff_cardinality)) +
+  geom_point(shape = 95) +
+  geom_abline(slope = 1, intercept = 0)
+```
