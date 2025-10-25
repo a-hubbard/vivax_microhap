@@ -23,7 +23,7 @@ library(stringr)
 library(tidyr)
 
 # Don't include code in PDF output
-opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
+opts_chunk$set(echo = ! is_latex_output())
 # Set default ggplot2 theme
 theme_set(theme_bw())
 
@@ -31,14 +31,67 @@ theme_set(theme_bw())
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
 inp <- list(
-  mh_full = "../../results/microhap/MalariaGEN/mg_microhap.csv"
+  mh_full = "../../results/microhap/MalariaGEN/mg_microhap.csv", 
+  pvgap_bed = "../../results/
 )
 ```
 
-```{r}
-# Convert allele frequency list to tibble for one target
-onetargetaf_list2tib <- function(onetargetaf) {
-  tibble(seq = names(onetargetaf), freq = unname(onetargetaf))
+# Marker Cardinality
+
+```{r out.width = "100%", fig.height = 3}
+# Calculate allele frequency with Dcifer
+dcifer_calcafreq <- function(mh_tib) {
+
+  # Convert allele frequency list to tibble for one target
+  onetargetaf_list2tib <- function(onetargetaf) {
+    tibble(seq = names(onetargetaf), freq = unname(onetargetaf))
+  }
+
+  # Compute allele frequency with Dcifer and reformat to tidy tibble
+  # All samples should have a COI of 1
+  coi <- rep(1, n_distinct(mh_tib$sample_id))
+  af_dcifer <- mh_tib %>%
+    dcifer::formatDat(svar = "sample_id", lvar = "locus", avar = "hapseq") %>%
+    dcifer::calcAfreq(coi)
+  tibble(
+    target_id = names(af_dcifer), 
+    alleles_freqs = unname(af_dcifer)
+  ) %>%
+  mutate(alleles_freqs = map(alleles_freqs, onetargetaf_list2tib)) %>%
+  unnest(alleles_freqs)
+
+}
+
+# Calculate marker metrics given a tibble of allele frequencies --------
+compute_marker_metrics <- function(af_long) {
+
+  # Convert allele frequency from Dcifer format to matrix
+  af_wide <- af_long %>%
+    group_by(target_id) %>%
+    mutate(allele_id = str_c("Allele_", row_number())) %>%
+    ungroup() %>%
+    select(-seq) %>%
+    pivot_wider(names_from = "allele_id", values_from = "freq") %>%
+    mutate(across(-target_id, ~replace_na(.x, 0)))
+  af_matrix <- af_wide %>%
+    select(-target_id) %>%
+    as.matrix()
+  rownames(af_matrix) <- af_wide$target_id
+
+  # Compute effective cardinalities
+  eff_cardinalities_vec <- paneljudge::compute_eff_cardinalities(
+    af_matrix, 
+    # This argument does not seem to do anything
+    warn_fs = FALSE
+  )
+  eff_cardinalities_tib <- tibble(
+      target_id = names(eff_cardinalities_vec), 
+      eff_cardinality = unname(eff_cardinalities_vec)
+    )
+  af_long %>%
+    group_by(target_id) %>%
+    summarize(cardinality = n_distinct(seq), .groups = "drop") %>%
+    left_join(eff_cardinalities_tib, by = "target_id")
 }
 
 # Read in microhaplotype data ------------------------------------------
@@ -55,51 +108,85 @@ mh_full <- read_csv(
     ), 
     progress = FALSE
   ) %>%
-  select(chrom, locus, sample_id, hapseq, Population) %>%
+  filter(
+    (Population == "ESEA") |
+    (Population == "LAM") |
+    (Country == "Ethiopia")
+  ) %>%
+  select(locus, sample_id, hapseq, Population) %>%
+  mutate(panel = "PvGAP") %>%
   # Filter to diversity loci
   filter(str_detect(locus, "PvP01"))
 
 # Compute allele frequency with Dcifer ----------------------------------
-# All samples should have a COI of 1
-coi <- rep(1, n_distinct(mh_full$sample_id))
-af_dcifer <- mh_full %>%
-  filter(Population == "AF") %>%
-  dcifer::formatDat(svar = "sample_id", lvar = "locus", avar = "hapseq") %>%
-  dcifer::calcAfreq(coi)
+af <- mh_full %>%
+  nest(mh_data = c(locus, sample_id, hapseq)) %>%
+  mutate(allele_freqs = map(mh_data, dcifer_calcafreq)) %>%
+  select(-mh_data) %>%
+  unnest(allele_freqs)
 
-# Convert allele frequency from Dcifer format to matrix ----------------
-af_long <- tibble(
-    target_id = names(af_dcifer), 
-    alleles_freqs = unname(af_dcifer)
-  ) %>%
-  mutate(alleles_freqs = map(alleles_freqs, onetargetaf_list2tib)) %>%
-  unnest(alleles_freqs)
-af_wide <- af_long %>%
-  group_by(target_id) %>%
-  mutate(allele_id = str_c("Allele_", row_number())) %>%
-  ungroup() %>%
-  select(-seq) %>%
-  pivot_wider(names_from = "allele_id", values_from = "freq") %>%
-  mutate(across(-target_id, ~replace_na(.x, 0)))
-af_matrix <- af_wide %>%
-  select(-target_id) %>%
-  as.matrix()
-rownames(af_matrix) <- af_wide$target_id
-
-# Compute effective cardinalities --------------------------------------
-eff_cardinalities_vec <- paneljudge::compute_eff_cardinalities(af_matrix)
-eff_cardinalities_tib <- tibble(
-    target_id = names(eff_cardinalities_vec), 
-    eff_cardinality = unname(eff_cardinalities_vec)
-  )
-marker_metrics <- af_long %>%
-  group_by(target_id) %>%
-  summarize(cardinality = n_distinct(seq), .groups = "drop") %>%
-  left_join(eff_cardinalities_tib, by = "target_id")
+# Compute marker metrics for each population ---------------------------
+marker_metrics <- af %>%
+  nest(af = c(target_id, seq, freq)) %>%
+  mutate(marker_metrics = map(af, compute_marker_metrics)) %>%
+  select(-af) %>%
+  unnest(marker_metrics)
 
 # Visualize cardinality versus effective cardinality -------------------
+scale_max <- max(c(marker_metrics$cardinality, marker_metrics$eff_cardinality))
+scale_lim <- c(0, scale_max)
 marker_metrics %>%
   ggplot(mapping = aes(x = cardinality, y = eff_cardinality)) +
-  geom_point(shape = 95) +
-  geom_abline(slope = 1, intercept = 0)
+  geom_point(shape = 95, size = 3) +
+  geom_abline(slope = 1, intercept = 0) +
+  facet_grid(rows = vars(panel), cols = vars(Population)) +
+  scale_x_continuous(limits = scale_lim) +
+  scale_y_continuous(limits = scale_lim) +
+  labs(x = "Cardinality", y = "Effective Cardinality")
+```
+
+This plot shows the cardinality, meaning the number of unique alleles at each
+locus, versus the effective cardinality, which is a combined measure of the
+cardinality and the allelic diversity. Effective cardinality cannot exceed
+cardinality, so the y=x line indicates the maximum effective cardinality for
+each locus.
+
+This table shows the number of loci that have no variation in the entire
+dataset:
+
+```{r}
+# Compute number of loci with no variation in entire dataset -----------
+marker_metrics %>%
+  group_by(panel, target_id) %>%
+  summarize(n_pop_novar = sum(cardinality), .groups = "drop_last") %>%
+  summarize(n_locus_novar = sum(n_pop_novar == 3), .groups = "drop")
+```
+
+This table shows the number of loci that have no variation in each population:
+  
+```{r}
+# Compute number of loci with no variation by population ---------------
+marker_metrics %>%
+  group_by(panel, Population) %>%
+  summarize(n_novar = sum(cardinality == 1), .groups = "drop")
+```
+
+This table shows the sum of all of the effective cardinalities, which is a 
+measure of the overall informativeness of the panel in that population:
+
+```{r}
+# Compute "total cardinality" for each population ----------------------
+marker_metrics %>%
+  filter(cardinality > 1) %>%
+  group_by(panel, Population) %>%
+  summarize(total_cardinality = sum(eff_cardinality), .groups = "drop")
+```
+
+Loci with a cardinality of one were filtered out of each population prior to 
+this calculation.
+
+# Power for Relatedness Estimation
+
+```{r}
+# Read in BED file describing panel markers ----------------------------
 ```
