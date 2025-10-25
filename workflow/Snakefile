@@ -846,7 +846,6 @@ filtered_sample_list = os.path.join("results", "filtered_samples.txt")
 filtered_sample_metadata = os.path.join(
     malariagen_prep_dir, 
     "sample_metadata.csv")
-unfiltered_sites = os.path.join("results", "unfiltered_sites.geojson")
 checkpoint inspect_sample_properties:
     input:
         malariagen_metadata, 
@@ -856,8 +855,7 @@ checkpoint inspect_sample_properties:
     output: 
         multiext(notebooks["sample_properties"], ".nb.html", ".pdf", ".md"), 
         samp_list = filtered_sample_list, 
-        samp_metadata = filtered_sample_metadata, 
-        sites = unfiltered_sites
+        samp_metadata = filtered_sample_metadata
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \

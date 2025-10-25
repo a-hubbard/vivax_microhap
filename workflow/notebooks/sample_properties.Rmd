@@ -13,7 +13,6 @@ output:
 # are loaded second to avoid masking
 library(knitr)
 library(magrittr)
-library(sf)
 library(tidyverse)
 
 # Don't include code in PDF output
@@ -32,8 +31,7 @@ inp <- list(
 out <- list(
   filtered_samples = "../../results/filtered_samples.txt", 
   filtered_metadata = 
-    "../../results/MalariaGEN/preprocessed/sample_metadata.csv", 
-  study_sites = "../../results/unfiltered_sites.geojson"
+    "../../results/MalariaGEN/preprocessed/sample_metadata.csv"
 )
 ```
 
@@ -195,12 +193,4 @@ sample_info_filterbyyear %>%
   select(sample_id) %>%
   write_csv(out$filtered_samples, col_names = FALSE)
 write_csv(sample_info_filterbyyear, out$filtered_metadata)
-
-# Write GeoJSON of study sites to disk ---------------------------------
-sample_info_filterbyyear %>%
-  group_by(Country, Site, Lat, Long) %>%
-  summarize(n_samp = n(), .groups = "drop") %>%
-  st_as_sf(coords = c("Long", "Lat")) %>%
-  st_set_crs(4326) %>%
-  st_write(out$study_sites, delete_dsn = TRUE)
 ```

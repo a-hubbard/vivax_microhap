@@ -33,7 +33,6 @@ dependencies:
   - r-devtools
   - r-optparse
   - r-patchwork
-  - r-sf
   - r-rstatix
   - r-seqinr
   - bioconductor-biostrings
