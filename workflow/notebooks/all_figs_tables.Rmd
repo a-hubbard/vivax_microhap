@@ -35,33 +35,3 @@ include_graphics("../../results/figs/suppfig1.pdf")
 ```{r}
 include_graphics("../../results/figs/fig2.pdf")
 ```
-
-# Supplemental Figure 2
-
-```{r}
-include_graphics("../../results/figs/suppfig2.pdf")
-```
-
-# Supplemental Figure 3
-
-```{r}
-include_graphics("../../results/figs/suppfig3.pdf")
-```
-
-# Figure 3
-
-```{r}
-include_graphics("../../results/figs/fig3.pdf")
-```
-
-# Supplemental Figure 4
-
-```{r}
-include_graphics("../../results/figs/suppfig4.pdf")
-```
-
-# Figure 4
-
-```{r}
-include_graphics("../../results/figs/fig4.pdf")
-```

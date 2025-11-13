@@ -215,17 +215,4 @@ sample_info_filterbyyear %>%
   select(sample_id) %>%
   write_csv(out$filtered_samples, col_names = FALSE)
 write_csv(sample_info_filterbyyear, out$filtered_metadata)
-
-# Write GeoJSON of study sites to disk ---------------------------------
-sample_info_filterbyyear %>%
-  group_by(Country, Site, Lat, Long) %>%
-  summarize(n_samp = n(), .groups = "drop") %>%
-  st_as_sf(coords = c("Long", "Lat")) %>%
-  st_set_crs(4326) %>%
-  st_write(out$study_sites, delete_dsn = TRUE)
 ```
-
-    ## Deleting source `../../results/unfiltered_sites.geojson' using driver `GeoJSON'
-    ## Writing layer `unfiltered_sites' to data source 
-    ##   `../../results/unfiltered_sites.geojson' using driver `GeoJSON'
-    ## Writing 16 features with 3 fields and geometry type Point.
