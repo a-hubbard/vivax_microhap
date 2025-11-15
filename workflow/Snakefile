@@ -45,6 +45,7 @@ localrules:
     filter_bed, 
     filter_primers, 
     multiqc_uci1223_data, 
+    multiqc_serialdil_data, 
     list_uci1223_fastqs, 
     postproc_dada2_uci1223, 
     asv2cigar_uci1223, 
@@ -410,6 +411,37 @@ rule multiqc_uci1223_data:
     output: uci1223_multiqc_report
     shell: "multiqc --outdir {uci1223_multiqc_dir} --force {uci1223_fastqc_dir}"
 
+# Check quality of serial dilutions FASTQs
+raw_seq_dir = os.path.join("resources", "seq_data")
+serialdil_dir = os.path.join(raw_seq_dir, "serialdil")
+serialdil_seqs = [
+    f for f in glob.glob(os.path.join(serialdil_dir,"*R*_001.fastq.gz")) if "Undetermined" 
+    not in f]
+qc_dir = os.path.join("results", "seq_qc")
+serialdil_qc_dir = os.path.join(qc_dir, "serialdil")
+serialdil_fastqc_dir = os.path.join(serialdil_qc_dir, "fastqc")
+serialdil_fastqc_outbase = [
+    os.path.join(serialdil_fastqc_dir,os.path.basename(fq)[:-9]+"_fastqc.{ext}") 
+    for fq in serialdil_seqs]
+serialdil_fastqc_out = expand(serialdil_fastqc_outbase, ext=["html","zip"])
+rule fastqc_serialdil_data:
+    input: serialdil_seqs
+    output: serialdil_fastqc_out
+    resources:
+        time = 60, 
+        mem_mb = 8000
+    threads: 8
+    benchmark: os.path.join("benchmarks", "fastqc_serialdil_data.tsv")
+    shell: "fastqc -o {serialdil_fastqc_dir} -t {threads} {input}"
+serialdil_multiqc_dir = os.path.join(serialdil_qc_dir, "multiqc")
+serialdil_multiqc_report = os.path.join(
+    serialdil_multiqc_dir, 
+    "multiqc_report.html")
+rule multiqc_serialdil_data:
+    input: serialdil_fastqc_out
+    output: serialdil_multiqc_report
+    shell: "multiqc --outdir {serialdil_multiqc_dir} --force {serialdil_fastqc_dir}"
+
 # Run AmpSeQC on May 2022 and UCI 12/23 data
 # AmpSeQC requires a FAI index of the reference genome
 ref_genome_fai = ref_genome + ".fai"
@@ -453,7 +485,11 @@ read_counts = os.path.join(ampseqc_seqrun_dir, "read_counts.tsv")
 may2022_seqs = glob.glob("resources/seq_data/PV_GTSeq_May2022/*.fastq.gz")
 # Sort list so that READ2 will always follow READ1
 uci1223_seqs.sort()
-seq_dict = {"May2022": may2022_seqs, "UCI1223": uci1223_seqs}
+seq_dict = {
+    "May2022": may2022_seqs, 
+    "UCI1223": uci1223_seqs, 
+    "serialdil": serialdil_seqs
+}
 rule run_ampseqc:
     input:
         ref_genome_fai, 
@@ -496,7 +532,7 @@ loci2filter_dir = os.path.join("results", "loci2filter")
 loci2filter_good_amp = os.path.join(loci2filter_dir, "good_amp.csv")
 rule analyze_ampseqc_results:
     input:
-        expand(read_counts, seqrun=["May2022","UCI1223"]), 
+        expand(read_counts, seqrun=["May2022","UCI1223", "serialdil"]), 
         code = os.path.join("workflow", "notebooks", "ampseqc_results.Rmd")
     output: 
         multiext(notebooks["ampseqc_results"], ".nb.html", ".pdf", ".md"), 
