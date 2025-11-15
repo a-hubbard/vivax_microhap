@@ -221,17 +221,19 @@ tibble(locus = loci_good_amp) %>%
   write_csv(out$loci_good_amp)
 ```
 
+# Read Counts
+
 ## Serial Dilutions
 
 ```{r message = FALSE}
 # Read in read counts --------------------------------------------------
-serial_read_counts <- read_tsv(
-    inp$serial_read_counts, 
+serialdil_read_counts <- read_tsv(
+    inp$serialdil_read_counts, 
     col_types = cols(.default = col_integer(), sample = col_character()), 
     progress = FALSE
   ) %>%
   rename(sample_id = sample)
-serial_read_counts_byloc <- serial_read_counts %>%
+serialdil_read_counts_byloc <- serialdil_read_counts %>%
   select(
     -`__no_feature`, 
     -`__ambiguous`, 
@@ -240,10 +242,10 @@ serial_read_counts_byloc <- serial_read_counts %>%
     -`__alignment_not_unique`
   ) %>%
   pivot_longer(-sample_id, names_to = "locus", values_to = "n_read") %>%
-  filter(locus %in% loci_good_amp) %>%
+  filter(locus %in% loci_good_amp)
 
 # Plot distribution of failed reads by reason --------------------------
-plot_failed_reads(serial_read_counts)
+plot_failed_reads(serialdil_read_counts)
 ```
 
 These histograms show the number of replicates with a certain number of reads 
@@ -254,10 +256,21 @@ The total number of reads that passed AmpSeQC's filters is:
 
 ```{r fig.width = 20, fig.height = 30}
 # Print total read count -----------------------------------------------
-sum(serial_read_counts_byloc$n_read)
+sum(serialdil_read_counts_byloc$n_read)
+
+# Read in and join metadata sheet --------------------------------------
+serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
+  separate_wider_delim(sample_id, "_", names = c("sample_id", NA, NA)) %>%
+  separate_wider_delim(
+    sample_id, 
+    "-", 
+    names = c("specimen_id", "parasitemia", "rep_id"), 
+    cols_remove = FALSE
+  )
 
 # Plot read counts by locus and replicate ------------------------------
-serial_read_counts_byloc %>%
+serialdil_read_counts_byloc %>%
+  filter(specimen_id == "s6") %>%
   read_count_heatmap()
 ```
 
