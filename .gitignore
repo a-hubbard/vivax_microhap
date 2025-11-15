@@ -1,9 +1,4 @@
-# The following four lines are necessary to ignore everything in 
-# results except .md R Markdown outputs
 results/*
-!results/notebooks
-results/notebooks/*
-!results/notebooks/*.md
 benchmarks/*
 logs/*
 .snakemake/*
