@@ -94,14 +94,15 @@ read_count_heatmap <- function(reads,
                                  name = "Reads", 
                                  breaks = c(10, 100, 1000, 2000)
                                ), 
-                               theme_tweaks = NULL) {
+                               theme_tweaks = NULL, 
+                               title_lbl = NULL) {
   ggplot(
       data = reads, 
       mapping = aes(x = locus, y = sample_id, fill = n_read)
     ) +
     geom_tile() +
     fill_scale +
-    labs(x = "Locus", y = "Replicate") +
+    labs(x = "Locus", y = "Replicate", title = title_lbl) +
     theme(
       axis.text.x = element_text(angle = 90, hjust = 1), 
       legend.position = "bottom", 
@@ -241,10 +242,24 @@ serialdil_read_counts_byloc <- serialdil_read_counts %>%
     -`__not_aligned`, 
     -`__alignment_not_unique`
   ) %>%
-  pivot_longer(-sample_id, names_to = "locus", values_to = "n_read") %>%
-  filter(locus %in% loci_good_amp)
+  pivot_longer(-sample_id, names_to = "locus", values_to = "n_read")
+```
 
-# Plot distribution of failed reads by reason --------------------------
+The read counts table includes all of the old loci because those were in the
+files passed to AmpSeQC, but none of them should have been included in this
+version of the panel. None of those loci received any reads in this run, which
+verifies this is true:
+
+```{r}
+# Make sure none of old loci were included -----------------------------
+serialdil_read_counts_byloc %>%
+  filter(! locus %in% loci_good_amp) %$%
+  sum(n_read)
+serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
+  filter(locus %in% loci_good_amp)
+```
+
+```{r}
 plot_failed_reads(serialdil_read_counts)
 ```
 
@@ -254,7 +269,7 @@ conditions, the read counts are at or near 0, indicating no cause for concern.
 
 The total number of reads that passed AmpSeQC's filters is:
 
-```{r fig.width = 20, fig.height = 30}
+```{r fig.width = 14, fig.height = 5.5}
 # Print total read count -----------------------------------------------
 sum(serialdil_read_counts_byloc$n_read)
 
@@ -266,13 +281,91 @@ serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
     "-", 
     names = c("specimen_id", "parasitemia", "rep_id"), 
     cols_remove = FALSE
-  )
+  ) %>%
+  mutate(parasitemia = as.integer(parasitemia))
 
 # Plot read counts by locus and replicate ------------------------------
-serialdil_read_counts_byloc %>%
-  filter(specimen_id == "s6") %>%
-  read_count_heatmap()
+for (s in unique(serialdil_read_counts_byloc$specimen_id)) {
+  title_lbl <- str_c("Sample", str_sub(s, start = 2L), sep = " ")
+  serialdil_read_counts_byloc %>%
+    filter(specimen_id == s) %>%
+    arrange(parasitemia, desc(rep_id)) %>%
+    mutate(
+      sample_id = factor(sample_id, levels = unique(sample_id), ordered = TRUE)
+    ) %>%
+    read_count_heatmap(
+       fill_scale = scale_fill_fermenter(
+         palette = "YlGnBu", 
+         name = "Reads", 
+         breaks = c(1, 10, 100, 1000, 2000)
+       ), 
+      title_lbl = title_lbl
+    ) %>%
+    print()
+}
 ```
 
-This heatmap shows the number of reads identified for each locus/replicate
-combination.
+These heatmaps shows the number of reads identified for each locus/replicate
+combination, one heatmap per sample in the serial dilution experiment.
+
+From these plots, we can see that read counts generally diminish with decreasing
+parasitemia, as expected, but the relationship is complex. For 250, 500, and
+1000, there are some samples where all three replicates worked well overall, and
+other samples where the results were more spotty. For 10, 50, and 100, some
+samples worked well with some replicates and not others, and some samples didn't
+work well at all. Also, samples five and six generally seem to have amplified
+worse than the others, even once you account for the fact that they did not have
+the highest parasitemia classes.
+
+```{r fig.height = 3.5}
+# Bind all sequencing runs into one tibble -----------------------------
+may2022_read_counts_byloc <- may2022_read_counts_byloc %>%
+  mutate(run = "may2022")
+uci1223_read_counts_byloc <- uci1223_read_counts_byloc %>%
+  mutate(run = "uci1223")
+serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
+  select(-specimen_id, -parasitemia, -rep_id) %>%
+  mutate(run = "serialdil")
+read_counts_byloc <- bind_rows(
+    may2022_read_counts_byloc, 
+    uci1223_read_counts_byloc, 
+    serialdil_read_counts_byloc
+  ) %>%
+  filter(locus %in% loci_good_amp)
+
+# Compare amplification in this sequencing run to previous ones --------
+mean_reads_per_sample <- read_counts_byloc %>%
+  group_by(run, locus) %>%
+  summarize(mean_reads_per_sample = mean(n_read), .groups = "drop")
+mean_reads_per_sample %>%
+  # Add a small decimal to every mean so that 0 will not become NA with 
+  # a log transformation, but everything will still bin with the same 
+  # integer
+  mutate(mean_reads_per_sample = mean_reads_per_sample + 0.1) %>%
+  ggplot(mapping = aes(x = mean_reads_per_sample)) +
+  geom_histogram(bins = 30) +
+  facet_wrap(vars(run)) +
+  scale_x_continuous(trans = "log10") +
+  labs(x = "Mean Reads per Sample", y = "No. of Loci")
+```
+
+These histograms show the mean reads per sample for each locus, with facets
+separating results for each of the three sequencing runs analyzed above. The 
+serial dilution experiment did yield fewer reads for many loci, which is not 
+necessarily unexpected given the intentionally low parasite densities.
+
+However, a larger number of loci had very few reads, compared to previous 
+sequencing experiments. In addition, three loci completely failed, which has not 
+happened before:
+
+```{r}
+mean_reads_per_sample %>%
+  filter(mean_reads_per_sample < 10)
+```
+
+Also, loci that amplify badly continue to be inconsistent between different 
+runs. PvP01_07_v1_500001_500200 failed in the May 2022 experiment, and has been 
+fine since. PvP01_08_v1_1279701_1279900 and pvdbp.503 amplified badly (though 
+not a complete failure) in Lauren's data, and were OK in the other two runs. In
+the serial dilutions, six loci that have previously been OK either completely
+failed or yielded very low reads.
