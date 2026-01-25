@@ -1020,9 +1020,9 @@ rule sim_rel_w_paneljudge:
         code = os.path.join("workflow", "scripts", "sim_rel_w_paneljudge.R")
     output: rel_sim_res
     resources:
-        time = 10, 
-        mem_mb = 2000
-    threads: 4
+        time = 60, 
+        mem_mb = 4000
+    threads: 1
     benchmark: os.path.join("benchmarks", "sim_rel_{panel}_{pop_oi}.tsv")
     shell:
         "Rscript {input.code} "

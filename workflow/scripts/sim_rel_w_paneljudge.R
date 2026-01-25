@@ -44,7 +44,7 @@ if (interactive()) {
   arg$bed <- "../../results/primer_mapping/captured_seq_coords_good_amp.bed"
   arg$af <- "../../results/af/af_PvGAP_AF.tsv"
   arg$shared_functions <- "../shared_functions.R"
-  arg$n_pair <- 5
+  arg$n_pair <- 1
   arg$seed <- 1
 }
 
@@ -71,43 +71,47 @@ sim_rel_w_panel <- function(af_long, distances, n_pair = 5) {
   n <- n_pair # Number of pairs to per simulate per r in rs
   fs <- af_matrix # example marker allele frequencies
   ds <- distances_af_wide$distance # distances between marker mid-points
-
-  mle_CIs <- lapply(rs, function(r) {
-    sapply(1:n, function(i) {
-
-      # First simulate genotype pair
-      Ys <- paneljudge::simulate_Ys(fs, ds, k, r, warn_fs = FALSE)
-
-      # Second, estimate r and k
-      # This returns a lot of these warnings: "Some per-marker allele 
-      # exceed per-marker non-zero allele frequencies. Data are 
-      # permissible due to non-zero epsilon." Based on my digging, I 
-      # think isn't a concern, so I suppress the warnings.
-      quiet_estimate_r_and_k <- quietly(paneljudge::estimate_r_and_k)
-      krhat <- quiet_estimate_r_and_k(fs, ds, Ys, warn_fs = FALSE)[[1]]
-
-      # Third, compute confidence intervals (CIs)
-      CIs <- paneljudge::compute_r_and_k_CIs(
-        fs, 
-        ds, 
-        khat = krhat['khat'], 
-        rhat = krhat['rhat'], 
-        warn_fs = FALSE
-      )
-
-      # End of function
-      return(c(krhat['rhat'], CIs['rhat',]))
-    })
-  })
   ### End of copied code ###
 
-  # Tidy results
-  tibble(datagen_r = names(mle_CIs), sim_res = unname(mle_CIs)) %>%
-    mutate(sim_res = map(sim_res, t)) %>%
-    mutate(sim_res = map(sim_res, as_tibble)) %>%
-    mutate(sim_res = map(sim_res, rowid_to_column, var = "pair_num")) %>%
-    unnest(sim_res) %>%
-    rename(ci_2_5 = `2.5%`, ci_97_5 = `97.5%`)
+  # Simulate relatedness estimates
+  # The warn_fs argument of these functions doesn't seem to work
+  quiet_simulate_Ys <- quietly(paneljudge::simulate_Ys)
+  quiet_compute_r_and_k_CIs <- quietly(paneljudge::compute_r_and_k_CIs)
+  # Also, this function returns a lot of these warnings: "Some 
+  # per-marker allele exceed per-marker non-zero allele frequencies. 
+  # Data are permissible due to non-zero epsilon." Based on my digging, 
+  # I think isn't a concern, so I suppress the warnings.
+  quiet_estimate_r_and_k <- quietly(paneljudge::estimate_r_and_k)
+  expand.grid(datagen_r = rs, pair_num = 1:n) %>%
+    as_tibble() %>%
+    mutate(
+      Ys = map(
+        datagen_r, 
+        ~ quiet_simulate_Ys(fs, ds, k, .x, warn_fs = FALSE)[[1]]
+      )
+    ) %>%
+    mutate(
+      krhat = map(
+        Ys, 
+        ~ quiet_estimate_r_and_k(fs, ds, .x, warn_fs = FALSE)[[1]]
+      )
+    ) %>%
+    mutate(
+      ci = map(
+        krhat, 
+        ~ quiet_compute_r_and_k_CIs(
+          fs, 
+          ds, 
+          khat = .x['khat'], 
+          rhat = .x['rhat'], 
+          warn_fs = FALSE)[[1]]
+      )
+    ) %>%
+    mutate(rhat = map_dbl(krhat, pluck, "rhat")) %>%
+    mutate(ci_2_5 = map_dbl(ci, ~ .x["rhat", "2.5%"])) %>%
+    mutate(ci_97_5 = map_dbl(ci, ~ .x["rhat", "97.5%"])) %>%
+    select(-Ys, -krhat, -ci)
+
 }
 
 # Read in BED file describing panel markers ----------------------------
