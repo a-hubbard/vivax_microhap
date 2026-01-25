@@ -9,6 +9,7 @@ library(magrittr)
 library(optparse)                                                                
 library(purrr)
 library(readr)
+library(stringr)
 library(tibble)
 library(tidyr)
 
@@ -51,7 +52,7 @@ source(arg$shared_functions)
 set.seed(arg$seed)
 
 # Simulated relatedness estimates with paneljudge
-sim_rel_w_panel <- function(af_long, distances) {
+sim_rel_w_panel <- function(af_long, distances, n_pair = 5) {
 
   # Convert allele frequencies to matrix
   af_wide <- af_dcifer2wide(af_long)
@@ -67,7 +68,7 @@ sim_rel_w_panel <- function(af_long, distances) {
   # Define data-generating r values
   rs <- c("0.01"=0.01, "0.25"=0.25, "0.50"=0.50, "0.75"=0.75, "0.99"=0.99)
   k <- 5 # Data-generating switch rate parameter value
-  n <- 5 # Number of pairs to per simulate per r in rs
+  n <- n_pair # Number of pairs to per simulate per r in rs
   fs <- af_matrix # example marker allele frequencies
   ds <- distances_af_wide$distance # distances between marker mid-points
 
@@ -158,5 +159,5 @@ marker_info <- marker_info %>%
 # Simulate relatedness estimates and write to disk ---------------------
 distances <- marker_info %>%
   select(target_id, distance)
-sim_rel_w_panel(af, distances, n = arg$n_pair) %>%
+sim_rel_w_panel(af, distances, n_pair = arg$n_pair) %>%
   write_tsv(arg$out)

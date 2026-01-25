@@ -88,7 +88,7 @@ notebook_basenames = [
     "microhap_quantity_uci1223", 
     "tidy_microhap_uci1223", 
     "sample_properties", 
-    "paneljudge_marker_metrics", 
+    "paneljudge_markermetrics", 
     "paneljudge_relpower"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
@@ -117,6 +117,8 @@ mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
 biosample_attributes = os.path.join(
     "results", 
     "uci1223_biosample_attributes.tsv")
+# Seed for reproducing random number generation
+seed = 46062391
 rule all:
     input:
         expand("{nb}.{ext}", nb=list(notebooks.values()), ext=["pdf","md"]), 
@@ -968,7 +970,7 @@ rule tidy_microhap_mg:
         time = 10, 
         mem_mb = 4000
     threads: 1
-    benchmark: os.path.join("benchmarks", "tidy_microhap.tsv")
+    benchmark: os.path.join("benchmarks", "tidy_microhap_mg.tsv")
     shell: 
         # Snakemake does not create the aligned FASTA directory 
         # automatically. I gather this is by design when you use a 
@@ -988,7 +990,7 @@ shared_functions = os.path.join("workflow", "shared_functions.R")
 panels = ["PvGAP"]
 pops = ["ESEA", "AF", "LAM"]
 af_dir = os.path.join("results", "af")
-af_table = os.path.join(af_dir, "af_{panel}_{pop}.tsv")
+af_table = os.path.join(af_dir, "af_{panel}_{pop_oi}.tsv")
 rule compute_marker_metrics:
     input:
         mg_microhap_tidy, 
@@ -996,27 +998,32 @@ rule compute_marker_metrics:
         code = os.path.join(
             "workflow", 
             "notebooks", 
-            "paneljudge_marker_metrics.Rmd")
+            "paneljudge_markermetrics.Rmd")
     output: 
         multiext(
-            notebooks["paneljudge_marker_metrics"], 
+            notebooks["paneljudge_markermetrics"], 
             ".nb.html", 
             ".pdf", 
             ".md"), 
-        expand(af_table, panel=panels, pop=pops)
+        expand(af_table, panel=panels, pop_oi=pops)
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
         """
-rel_sim_res = os.path.join("results", "rel_sim", "rel_sim_{panel}_{pop}.tsv")
+rel_sim_res = os.path.join("results", "rel_sim", "rel_sim_{panel}_{pop_oi}.tsv")
 rule sim_rel_w_paneljudge:
     input:
         af = af_table, 
         bed = trg_coords_good_amp, 
         shared_functions = shared_functions, 
-        code = os.path.join("workflow", "scripts", "tidy_microhap.R")
+        code = os.path.join("workflow", "scripts", "sim_rel_w_paneljudge.R")
     output: rel_sim_res
+    resources:
+        time = 10, 
+        mem_mb = 2000
+    threads: 4
+    benchmark: os.path.join("benchmarks", "sim_rel_{panel}_{pop_oi}.tsv")
     shell:
         "Rscript {input.code} "
         "--af {input.af} "
@@ -1027,7 +1034,7 @@ rule sim_rel_w_paneljudge:
         "--out {output}"
 rule analyze_rel_power:        
     input:
-        expand(rel_sim_res, panel=panels, pop=pops), 
+        expand(rel_sim_res, panel=panels, pop_oi=pops), 
         code = os.path.join(
             "workflow", 
             "notebooks", 
