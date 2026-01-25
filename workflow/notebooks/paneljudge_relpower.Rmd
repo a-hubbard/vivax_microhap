@@ -1,0 +1,37 @@
+---
+title: Evaluation Power for Relatedness Estimation with paneljudge
+author: Alfred Hubbard
+output:
+  html_notebook: default
+  pdf_document: default
+  github_document: default
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(dplyr)
+library(ggplot2)
+library(knitr)
+library(magrittr)
+library(purrr)
+library(readr)
+library(stringr)
+library(tidyr)
+
+# Don't include code in PDF output
+opts_chunk$set(echo = ! is_latex_output())
+# Set default ggplot2 theme
+theme_set(theme_bw())
+
+# Hardcode parameters. These are not passed as shell arguments because 
+# hardcoded values facilitate development and this document is not 
+# meant to be usable with other projects.
+inp <- list(
+  rel_sim_res_dir <- "../../results/rel_sim"
+)
+```
+
+# Power for Relatedness Estimation
+

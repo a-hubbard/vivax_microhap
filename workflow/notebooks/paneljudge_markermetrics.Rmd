@@ -1,5 +1,5 @@
 ---
-title: Evaluation with paneljudge
+title: Evaluation of Marker Diversity with paneljudge
 author: Alfred Hubbard
 output:
   html_notebook: default
@@ -32,8 +32,11 @@ theme_set(theme_bw())
 # meant to be usable with other projects.
 inp <- list(
   mh_full = "../../results/microhap/MalariaGEN/mg_microhap.csv", 
-  pvgap_bed = "../../results/
+  shared_functions = "../shared_functions.R"
 )
+out <- list(af_dir = "../../results/af")
+
+source(inp$shared_functions)
 ```
 
 # Marker Cardinality
@@ -62,28 +65,23 @@ dcifer_calcafreq <- function(mh_tib) {
 
 }
 
-# Calculate marker metrics given a tibble of allele frequencies --------
+# Calculate marker metrics given a tibble of allele frequencies
 compute_marker_metrics <- function(af_long) {
 
-  # Convert allele frequency from Dcifer format to matrix
-  af_wide <- af_long %>%
-    group_by(target_id) %>%
-    mutate(allele_id = str_c("Allele_", row_number())) %>%
-    ungroup() %>%
-    select(-seq) %>%
-    pivot_wider(names_from = "allele_id", values_from = "freq") %>%
-    mutate(across(-target_id, ~replace_na(.x, 0)))
+  # Convert allele frequencies to matrix
+  af_wide <- af_dcifer2wide(af_long)
   af_matrix <- af_wide %>%
     select(-target_id) %>%
     as.matrix()
   rownames(af_matrix) <- af_wide$target_id
 
   # Compute effective cardinalities
-  eff_cardinalities_vec <- paneljudge::compute_eff_cardinalities(
-    af_matrix, 
-    # This argument does not seem to do anything
-    warn_fs = FALSE
+  # The warn_fs argument doesn't seem to work, so quietly() is used 
+  # instead
+  quiet_compute_eff_cardinalities <- quietly(
+    paneljudge::compute_eff_cardinalities
   )
+  eff_cardinalities_vec <- quiet_compute_eff_cardinalities(af_matrix)[[1]]
   eff_cardinalities_tib <- tibble(
       target_id = names(eff_cardinalities_vec), 
       eff_cardinality = unname(eff_cardinalities_vec)
@@ -124,6 +122,23 @@ af <- mh_full %>%
   mutate(allele_freqs = map(mh_data, dcifer_calcafreq)) %>%
   select(-mh_data) %>%
   unnest(allele_freqs)
+
+# Write allele frequencies for use in relatedness simulations ----------
+panels <- c("PvGAP")
+pops <- unique(mh_full$Population)
+for (panel in panels) {
+  for (pop in pops) {
+    out_path <- file.path(
+      out$af_dir, 
+      str_c("af", panel, str_c(pop, ".tsv"), sep = "_")
+    )
+    af %>%
+      filter(panel == panel) %>%
+      filter(Population == pop) %>%
+      select(-panel, -Population) %>%
+      write_tsv(out_path)
+  }
+}
 
 # Compute marker metrics for each population ---------------------------
 marker_metrics <- af %>%
@@ -184,9 +199,3 @@ marker_metrics %>%
 
 Loci with a cardinality of one were filtered out of each population prior to 
 this calculation.
-
-# Power for Relatedness Estimation
-
-```{r}
-# Read in BED file describing panel markers ----------------------------
-```

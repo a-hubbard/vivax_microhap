@@ -65,6 +65,8 @@ localrules:
     filter_samps, 
     apply_variants, 
     filter2hapseq, 
+    compute_marker_metrics, 
+    analyze_rel_power, 
     plot_panel_target_metrics, 
     plot_read_counts_vs_parasitemia, 
     plot_read_counts_by_rep_locus, 
@@ -85,7 +87,9 @@ notebook_basenames = [
     "ampseqc_results", 
     "microhap_quantity_uci1223", 
     "tidy_microhap_uci1223", 
-    "sample_properties"]
+    "sample_properties", 
+    "paneljudge_marker_metrics", 
+    "paneljudge_relpower"]
 for nb in notebook_basenames:
     notebooks[nb] = os.path.join(rendered_notebook_dir, nb)
 nb_flag_template = os.path.join(".flags", "push_nb_{nb}")
@@ -945,7 +949,7 @@ rule filter2hapseq:
 # Finally, convert the data to tidy format and join metadata
 mg_microhap_tidy = os.path.join(mg_microhap_dir, "mg_microhap.csv")
 mg_microhap_aligned = os.path.join(mg_microhap_dir, "mg_microhap_aligned.rds")
-rule tidy_microhap:
+rule tidy_microhap_mg:
     input:
         lambda wildcards: expand_w_samp_list(wildcards, hapseq), 
         trg_coords = trg_coords_good_amp, 
@@ -977,6 +981,63 @@ rule tidy_microhap:
             {input.sample_metadata} --aligned_haps {output.aligned_haps} \
             --out_csv {output.mh_csv} --alignments_fasta_dir \
             {mg_microhap_aligned_fasta_dir}
+        """
+
+# Evaluate with paneljudge
+shared_functions = os.path.join("workflow", "shared_functions.R")
+panels = ["PvGAP"]
+pops = ["ESEA", "AF", "LAM"]
+af_dir = os.path.join("results", "af")
+af_table = os.path.join(af_dir, "af_{panel}_{pop}.tsv")
+rule compute_marker_metrics:
+    input:
+        mg_microhap_tidy, 
+        shared_functions, 
+        code = os.path.join(
+            "workflow", 
+            "notebooks", 
+            "paneljudge_marker_metrics.Rmd")
+    output: 
+        multiext(
+            notebooks["paneljudge_marker_metrics"], 
+            ".nb.html", 
+            ".pdf", 
+            ".md"), 
+        expand(af_table, panel=panels, pop=pops)
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
+rel_sim_res = os.path.join("results", "rel_sim", "rel_sim_{panel}_{pop}.tsv")
+rule sim_rel_w_paneljudge:
+    input:
+        af = af_table, 
+        bed = trg_coords_good_amp, 
+        shared_functions = shared_functions, 
+        code = os.path.join("workflow", "scripts", "tidy_microhap.R")
+    output: rel_sim_res
+    shell:
+        "Rscript {input.code} "
+        "--af {input.af} "
+        "--bed {input.bed} "
+        "--shared_functions {input.shared_functions} "
+        "--n_pair 5 "
+        "--seed {seed} "
+        "--out {output}"
+rule analyze_rel_power:        
+    input:
+        expand(rel_sim_res, panel=panels, pop=pops), 
+        code = os.path.join(
+            "workflow", 
+            "notebooks", 
+            "paneljudge_relpower.Rmd")
+    output: 
+        multiext(notebooks["paneljudge_relpower"], ".nb.html", ".pdf", ".md")
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
         """
 
 # Make figures
