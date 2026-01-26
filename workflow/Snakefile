@@ -1022,14 +1022,15 @@ rule sim_rel_w_paneljudge:
     resources:
         time = 60, 
         mem_mb = 4000
-    threads: 1
+    threads: 8
     benchmark: os.path.join("benchmarks", "sim_rel_{panel}_{pop_oi}.tsv")
     shell:
         "Rscript {input.code} "
         "--af {input.af} "
         "--bed {input.bed} "
         "--shared_functions {input.shared_functions} "
-        "--n_pair 5 "
+        "--n_pair 100 "
+        "--threads {threads} "
         "--seed {seed} "
         "--out {output}"
 rule analyze_rel_power:        

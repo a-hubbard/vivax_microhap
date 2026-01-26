@@ -31,6 +31,12 @@ opts <- list(
     help = "Number of pairs to simulate relatedness for"
   ), 
   make_option(
+    "--threads", 
+    type = "integer", 
+    default = 1, 
+    help = "Number of threads to use"
+  ), 
+  make_option(
     "--seed", 
     type = "integer", 
     default = 1, 
@@ -104,6 +110,7 @@ sim_rel_w_panel <- function(af_long, distances, n_pair = 5) {
           ds, 
           khat = .x['khat'], 
           rhat = .x['rhat'], 
+          core_count = arg$threads, 
           warn_fs = FALSE)[[1]]
       )
     ) %>%
