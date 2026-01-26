@@ -147,6 +147,16 @@ marker_metrics <- af %>%
   select(-af) %>%
   unnest(marker_metrics)
 
+# Add population labels ------------------------------------------------
+pop_lbls <- tribble(
+    ~Population, ~pop_lbl, 
+    "AF", "Ethiopia", 
+    "ESEA", "Cambodia and Vietnam", 
+    "LAM", "Latin America"
+  )
+marker_metrics <- marker_metrics %>%
+  left_join(pop_lbls, by = "Population")
+
 # Visualize cardinality versus effective cardinality -------------------
 scale_max <- max(c(marker_metrics$cardinality, marker_metrics$eff_cardinality))
 scale_lim <- c(0, scale_max)
@@ -154,7 +164,7 @@ marker_metrics %>%
   ggplot(mapping = aes(x = cardinality, y = eff_cardinality)) +
   geom_point(shape = 95, size = 3) +
   geom_abline(slope = 1, intercept = 0) +
-  facet_grid(rows = vars(panel), cols = vars(Population)) +
+  facet_grid(rows = vars(panel), cols = vars(pop_lbl)) +
   scale_x_continuous(limits = scale_lim) +
   scale_y_continuous(limits = scale_lim) +
   labs(x = "Cardinality", y = "Effective Cardinality")
@@ -182,7 +192,7 @@ This table shows the number of loci that have no variation in each population:
 ```{r}
 # Compute number of loci with no variation by population ---------------
 marker_metrics %>%
-  group_by(panel, Population) %>%
+  group_by(panel, pop_lbl) %>%
   summarize(n_novar = sum(cardinality == 1), .groups = "drop")
 ```
 
@@ -193,7 +203,7 @@ measure of the overall informativeness of the panel in that population:
 # Compute "total cardinality" for each population ----------------------
 marker_metrics %>%
   filter(cardinality > 1) %>%
-  group_by(panel, Population) %>%
+  group_by(panel, pop_lbl) %>%
   summarize(total_cardinality = sum(eff_cardinality), .groups = "drop")
 ```
 

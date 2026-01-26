@@ -35,3 +35,62 @@ inp <- list(
 
 # Power for Relatedness Estimation
 
+```{r out.width = "100%"}
+# Read in simulated relatedness estimates ------------------------------
+rel_sim_res <- tibble(
+    sim_res_path = list.files(rel_sim_res_dir, full.names = TRUE)
+  ) %>%
+  mutate(
+    sim_res = map(
+      sim_res_path, 
+      read_tsv, 
+      col_types = cols(
+        .default = col_double(), 
+        pair_num = col_integer()
+      ), 
+      progress = FALSE
+    )
+  ) %>%
+  mutate(sim_res_path = basename(sim_res_path)) %>%
+  mutate(sim_res_path = str_remove(sim_res_path, ".tsv")) %>%
+  separate_wider_delim(sim_res_path, "_", names = c(NA, NA, "panel", "pop")) %>%
+  unnest(sim_res)
+
+# Add population labels ------------------------------------------------
+pop_lbls <- tribble(
+    ~pop, ~pop_lbl, 
+    "AF", "Ethiopia", 
+    "ESEA", "Cambodia and Vietnam", 
+    "LAM", "Latin America"
+  )
+rel_sim_res <- rel_sim_res %>%
+  left_join(pop_lbls, by = "pop")
+
+# Compute and plot 95% CI widths of rhat by data-generating r ----------
+rel_sim_res %>%
+  mutate(ci_width = ci_97_5 - ci_2_5) %>%
+  mutate(datagen_r = as.character(datagen_r)) %>%
+  ggplot(mapping = aes(y = ci_width, x = datagen_r)) +
+  geom_boxplot() +
+  facet_wrap(vars(pop_lbl)) +
+  labs(x = "Data-generating r", y = "95% confidence interval width of rhat")
+```
+
+These boxplots show the distribution of CI widths for the relatedness estimate
+for each simulated pair according to the data-generating r value. They are
+facetted by region used for the allele frequencies.
+
+```{r out.width = "100%"}
+# Compute and plot RMSEs for each data-generating r --------------------
+rel_sim_res %>%
+  group_by(panel, pop_lbl, datagen_r) %>%
+  summarize(rmse = sqrt(mean((rhat - datagen_r)^2)), .groups = "drop") %>%
+  ggplot(mapping = aes(x = datagen_r, y = rmse)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(vars(pop_lbl)) +
+  labs(x = "Data-generating r", y = "RMSE of rhat")
+```
+
+These plots show the RMSE of rhat for each data-generating r value, facetted by
+region.
