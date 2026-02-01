@@ -63,6 +63,7 @@ localrules:
     compute_missbysamp, 
     inspect_sample_properties, 
     filter_samps, 
+    fmt_kleinecke_bed, 
     apply_variants, 
     filter2hapseq, 
     compute_marker_metrics, 
@@ -820,10 +821,11 @@ malariagen_orig_dir = os.path.join("resources", "MalariaGEN", "orig")
 malariagen_orig_vcf_dir = os.path.join(malariagen_orig_dir, "Pv4_vcf")
 malariagen_metadata = os.path.join(malariagen_orig_dir, "Pv4_samples.txt")
 malariagen_chromrenamed = "Pv4_PvP01_{chrom}_v1_chromrenamed.bcf"
+chrom_key = os.path.join("resources", "chrom_key.tsv")
 # Rename chromosomes to match convention in reference genome
 rule rename_chroms:
     input:
-        chrom_key = os.path.join("resources", "chrom_key.tsv"), 
+        chrom_key = chrom_key, 
         vcf = os.path.join(
             malariagen_orig_vcf_dir, 
             "Pv4_PvP01_{chrom}_v1.vcf.gz")
@@ -910,6 +912,24 @@ rule filter_samps:
         samp_list = filtered_sample_list
     output: malariagen_filtered_by_samp
     shell: "bcftools view -S {input.samp_list} -o {output} {input.vcf}"
+
+# Reformat target info of other panels to BED format
+rule fmt_kleinecke_bed:
+    input:
+        target_info = os.path.join(
+                "resources", 
+                "41467_2025_62357_MOESM4_ESM.xlsx"), 
+        chrom_key = chrom_key, 
+        code = os.path.join(
+            "workflow", 
+            "scripts", 
+            "fmt_kleinecke_bed.R")
+    output: os.path.join(panel_bed_dir, "Kleinecke.bed")
+    shell:
+        "Rscript {input.code} "
+        "--target_info {input.target_info} "
+        "--chrom_key {input.chrom_key} "
+        "--panel_bed {output}"
 
 # Get haplotype sequences by applying variants to reference genome
 ref_w_variants = "{samp}_ref_w_variants.fa"
