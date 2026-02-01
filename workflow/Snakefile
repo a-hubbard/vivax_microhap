@@ -112,7 +112,7 @@ supp_text_flag_template = os.path.join(".flags", "push_supptext_{supptext}")
 # Other outputs
 locus_metadata = os.path.join("results", "locus_metadata.tsv")
 microhap_dir = os.path.join("results", "microhap")
-mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN")
+mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN", "{panel}")
 mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
 biosample_attributes = os.path.join(
     "results", 
@@ -550,9 +550,8 @@ rule analyze_ampseqc_results:
         """
 
 # Filter target set to those present in sequencing runs
-trg_coords_good_amp = os.path.join(
-    prim_map_dir, 
-    "captured_seq_coords_good_amp.bed")
+panel_bed_dir = os.path.join("results", "panel_beds")
+trg_coords_good_amp = os.path.join(panel_bed_dir, "PvGAP.bed")
 rule filter_bed:
     input:
         inp_bed = trg_coords_noprimers, 
@@ -938,11 +937,12 @@ rule apply_variants:
         "> {output}"
 mg_microhap_fasta_dir = os.path.join(mg_microhap_dir, "fasta")
 hapseq = os.path.join(mg_microhap_fasta_dir, "{samp}_hapseq.fa")
+panel_bed = os.path.join(panel_bed_dir, "{panel}.bed")
 # Filter to the loci of interest
 rule filter2hapseq:
     input: 
         fasta = ref_w_variants, 
-        bed = trg_coords_good_amp
+        bed = panel_bed
     output: hapseq
     # Index files for the input fasta are automatically generated
     shadow: "full"
@@ -954,7 +954,7 @@ mg_microhap_aligned = os.path.join(mg_microhap_dir, "mg_microhap_aligned.rds")
 rule tidy_microhap_mg:
     input:
         lambda wildcards: expand_w_samp_list(wildcards, hapseq), 
-        trg_coords = trg_coords_good_amp, 
+        trg_coords = panel_bed, 
         sample_metadata = filtered_sample_metadata, 
         code = os.path.join("workflow", "scripts", "tidy_microhap.R")
     output: 
@@ -993,7 +993,7 @@ af_dir = os.path.join("results", "af")
 af_table = os.path.join(af_dir, "af_{panel}_{pop_oi}.tsv")
 rule compute_marker_metrics:
     input:
-        mg_microhap_tidy, 
+        expand(mg_microhap_tidy, panel=panels), 
         shared_functions, 
         code = os.path.join(
             "workflow", 
@@ -1015,7 +1015,7 @@ rel_sim_res = os.path.join("results", "rel_sim", "rel_sim_{panel}_{pop_oi}.tsv")
 rule sim_rel_w_paneljudge:
     input:
         af = af_table, 
-        bed = trg_coords_good_amp, 
+        bed = panel_bed, 
         shared_functions = shared_functions, 
         code = os.path.join("workflow", "scripts", "sim_rel_w_paneljudge.R")
     output: rel_sim_res
