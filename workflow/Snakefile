@@ -1010,7 +1010,7 @@ rule tidy_microhap_mg:
 
 # Evaluate with paneljudge
 shared_functions = os.path.join("workflow", "shared_functions.R")
-panels = ["PvGAP"]
+panels = ["PvGAP", "Kleinecke"]
 pops = ["ESEA", "AF", "LAM"]
 af_dir = os.path.join("results", "af")
 af_table = os.path.join(af_dir, "af_{panel}_{pop_oi}.tsv")

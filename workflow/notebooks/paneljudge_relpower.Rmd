@@ -70,7 +70,7 @@ rel_sim_res <- rel_sim_res %>%
 rel_sim_res %>%
   mutate(ci_width = ci_97_5 - ci_2_5) %>%
   mutate(datagen_r = as.character(datagen_r)) %>%
-  ggplot(mapping = aes(y = ci_width, x = datagen_r)) +
+  ggplot(mapping = aes(y = ci_width, x = datagen_r, color = panel)) +
   geom_boxplot() +
   facet_wrap(vars(pop_lbl)) +
   labs(x = "Data-generating r", y = "95% confidence interval width of rhat")
@@ -78,14 +78,15 @@ rel_sim_res %>%
 
 These boxplots show the distribution of CI widths for the relatedness estimate
 for each simulated pair according to the data-generating r value. They are
-facetted by region used for the allele frequencies.
+facetted by region used for the allele frequencies. Different panels are shown
+in different colors.
 
 ```{r out.width = "100%"}
 # Compute and plot RMSEs for each data-generating r --------------------
 rel_sim_res %>%
   group_by(panel, pop_lbl, datagen_r) %>%
   summarize(rmse = sqrt(mean((rhat - datagen_r)^2)), .groups = "drop") %>%
-  ggplot(mapping = aes(x = datagen_r, y = rmse)) +
+  ggplot(mapping = aes(x = datagen_r, y = rmse, color = panel)) +
   geom_line() +
   geom_point() +
   facet_wrap(vars(pop_lbl)) +
@@ -93,4 +94,4 @@ rel_sim_res %>%
 ```
 
 These plots show the RMSE of rhat for each data-generating r value, facetted by
-region.
+region. Different panels are shown in different colors.
