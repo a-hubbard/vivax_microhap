@@ -111,9 +111,6 @@ supp_texts = {"may2022": "supptext1"}
 supp_text_flag_template = os.path.join(".flags", "push_supptext_{supptext}")
 # Other outputs
 locus_metadata = os.path.join("results", "locus_metadata.tsv")
-microhap_dir = os.path.join("results", "microhap")
-mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN", "{panel}")
-mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
 biosample_attributes = os.path.join(
     "results", 
     "uci1223_biosample_attributes.tsv")
@@ -128,7 +125,6 @@ rule all:
         figs_tables_doc_flag, 
         expand(supp_text_flag_template, supptext=list(supp_texts.values())), 
         locus_metadata, 
-        mg_microhap_aligned_fasta_dir, 
         biosample_attributes
 # For others attempting to run the pipeline on their own machine
 rule replicate:
@@ -780,6 +776,7 @@ rule assess_microhap_quantity_uci1223:
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
         """
+microhap_dir = os.path.join("results", "microhap")
 uci1223_microhap_dir = os.path.join(microhap_dir, "uci1223")
 mh_uci1223 = os.path.join(uci1223_microhap_dir, "uci1223_microhap.tsv")
 rule tidy_microhap_uci1223:
@@ -935,6 +932,7 @@ rule apply_variants:
         # as the -H I argument (I verified this).
         "bcftools consensus -s {wildcards.samp} -I -f {input.ref} {input.vcf} "
         "> {output}"
+mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN", "{panel}")
 mg_microhap_fasta_dir = os.path.join(mg_microhap_dir, "fasta")
 hapseq = os.path.join(mg_microhap_fasta_dir, "{samp}_hapseq.fa")
 panel_bed = os.path.join(panel_bed_dir, "{panel}.bed")
@@ -949,6 +947,7 @@ rule filter2hapseq:
     shell:
         "bedtools getfasta -fi {input.fasta} -bed {input.bed} -fo {output}"
 # Finally, convert the data to tidy format and join metadata
+mg_microhap_aligned_fasta_dir = os.path.join(mg_microhap_dir, "aligned_fastas")
 mg_microhap_tidy = os.path.join(mg_microhap_dir, "mg_microhap.csv")
 mg_microhap_aligned = os.path.join(mg_microhap_dir, "mg_microhap_aligned.rds")
 rule tidy_microhap_mg:
@@ -970,7 +969,7 @@ rule tidy_microhap_mg:
         time = 10, 
         mem_mb = 4000
     threads: 1
-    benchmark: os.path.join("benchmarks", "tidy_microhap_mg.tsv")
+    benchmark: os.path.join("benchmarks", "tidy_microhap_mg_{panel}.tsv")
     shell: 
         # Snakemake does not create the aligned FASTA directory 
         # automatically. I gather this is by design when you use a 
