@@ -20,7 +20,7 @@ def expand_w_samp_list(wildcards, expression):
     with open(samp_txt, 'r') as samp_f:
         for line in samp_f:
             samp_l.append(line.rstrip())
-    return(expand(expression,samp=samp_l))
+    return(expand(expression,panel=wildcards.panel,samp=samp_l))
 
 
 # Identify rules to be executed locally
@@ -985,6 +985,9 @@ rule tidy_microhap_mg:
         directory(mg_microhap_aligned_fasta_dir), 
         aligned_haps = mg_microhap_aligned, 
         mh_csv = mg_microhap_tidy
+    params:
+        inp_fasta_dir = mg_microhap_fasta_dir, 
+        out_aligned_fasta_dir = mg_microhap_aligned_fasta_dir
     resources:
         time = 10, 
         mem_mb = 4000
@@ -994,14 +997,15 @@ rule tidy_microhap_mg:
         # Snakemake does not create the aligned FASTA directory 
         # automatically. I gather this is by design when you use a 
         # directory as output - it expects the rule itself to create 
-        # it.
+        # it. The directory name is reassigned to a parameter because 
+        # this makes wildcard expansion work.
         """
-        mkdir {mg_microhap_aligned_fasta_dir}
-        Rscript {input.code} --mh_fasta_dir {mg_microhap_fasta_dir} \
+        mkdir {params.out_aligned_fasta_dir}
+        Rscript {input.code} --mh_fasta_dir {params.inp_fasta_dir} \
             --trg_coords {input.trg_coords} --sample_metadata \
             {input.sample_metadata} --aligned_haps {output.aligned_haps} \
             --out_csv {output.mh_csv} --alignments_fasta_dir \
-            {mg_microhap_aligned_fasta_dir}
+            {params.out_aligned_fasta_dir}
         """
 
 # Evaluate with paneljudge

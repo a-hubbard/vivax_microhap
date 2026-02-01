@@ -35,14 +35,13 @@ arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
 if (interactive()) {
   arg <- list(
-    mh_fasta_dir = "../../results/microhap/MalariaGEN/fasta", 
-    trg_coords = 
-      "../../results/primer_mapping/captured_seq_coords_good_amp.bed", 
+    mh_fasta_dir = "../../results/microhap/MalariaGEN/PvGAP/fasta", 
+    trg_coords = "../../results/panel_beds/PvGAP.bed", 
     sample_metadata = 
       "../../results/MalariaGEN/preprocessed/sample_metadata.csv", 
-    aligned_haps = "../../results/microhap/MalariaGEN/mg_microhap_aligned.rds", 
-    out_csv = "../../results/microhap/MalariaGEN/mg_microhap.csv", 
-    alignments_fasta_dir = "../../results/microhap/MalariaGEN/aligned_fastas"
+    aligned_haps = "../../results/microhap/MalariaGEN/PvGAP/mg_microhap_aligned.rds", 
+    out_csv = "../../results/microhap/MalariaGEN/PvGAP/mg_microhap.csv", 
+    alignments_fasta_dir = "../../results/microhap/MalariaGEN/PvGAP/aligned_fastas"
   )
 }
 
