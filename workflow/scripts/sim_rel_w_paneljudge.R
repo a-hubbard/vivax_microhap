@@ -72,7 +72,17 @@ sim_rel_w_panel <- function(af_long, distances, n_pair = 5) {
 
   ### Copied from paneljudge vignette with light modifications ###
   # Define data-generating r values
-  rs <- c("0.01"=0.01, "0.25"=0.25, "0.50"=0.50, "0.75"=0.75, "0.99"=0.99)
+  rs <- c(
+    "0.01"=0.01, 
+    "0.05"=0.05, 
+    "0.1"=0.1, 
+    "0.15"=0.15, 
+    "0.2"=0.2, 
+    "0.25"=0.25, 
+    "0.50"=0.50, 
+    "0.75"=0.75, 
+    "0.99"=0.99
+  )
   k <- 5 # Data-generating switch rate parameter value
   n <- n_pair # Number of pairs to per simulate per r in rs
   fs <- af_matrix # example marker allele frequencies
