@@ -64,6 +64,7 @@ localrules:
     inspect_sample_properties, 
     filter_samps, 
     fmt_kleinecke_bed, 
+    fmt_pvgtseq_bed, 
     apply_variants, 
     filter2hapseq, 
     compute_marker_metrics, 
@@ -930,6 +931,17 @@ rule fmt_kleinecke_bed:
         "--target_info {input.target_info} "
         "--chrom_key {input.chrom_key} "
         "--panel_bed {output}"
+rule fmt_pvgtseq_bed:
+    input:
+        target_info = os.path.join("resources", "S4_Table.xlsx"), 
+        chrom_key = chrom_key, 
+        code = os.path.join("workflow", "scripts", "fmt_pvgtseq_bed.R")
+    output: os.path.join(panel_bed_dir, "PvGTSeq.bed")
+    shell:
+        "Rscript {input.code} "
+        "--target_info {input.target_info} "
+        "--chrom_key {input.chrom_key} "
+        "--panel_bed {output}"
 
 # Get haplotype sequences by applying variants to reference genome
 ref_w_variants = "{samp}_ref_w_variants.fa"
@@ -1010,7 +1022,7 @@ rule tidy_microhap_mg:
 
 # Evaluate with paneljudge
 shared_functions = os.path.join("workflow", "shared_functions.R")
-panels = ["PvGAP", "Kleinecke"]
+panels = ["PvGAP", "Kleinecke", "PvGTSeq"]
 pops = ["ESEA", "AF", "LAM"]
 af_dir = os.path.join("results", "af")
 af_table = os.path.join(af_dir, "af_{panel}_{pop_oi}.tsv")

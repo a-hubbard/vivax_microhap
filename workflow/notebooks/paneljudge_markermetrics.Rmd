@@ -32,6 +32,8 @@ theme_set(theme_bw())
 # meant to be usable with other projects.
 inp <- list(
   mh_pvgap = "../../results/microhap/MalariaGEN/PvGAP/mg_microhap.csv", 
+  mh_kleinecke = "../../results/microhap/MalariaGEN/Kleinecke/mg_microhap.csv", 
+  mh_pvgtseq = "../../results/microhap/MalariaGEN/PvGTSeq/mg_microhap.csv", 
   shared_functions = "../shared_functions.R"
 )
 out <- list(af_dir = "../../results/af")
@@ -138,9 +140,35 @@ mh_kleinecke <- read_csv(
   # Filter to diversity loci
   filter(str_detect(locus, "^[0-9]+$"))
 unique(mh_kleinecke$locus)
+length(unique(mh_kleinecke$locus))
+mh_pvgtseq <- read_csv(
+    inp$mh_pvgtseq, 
+    col_types = cols(
+      .default = col_character(), 
+      Lat = col_double(), 
+      Long = col_double(), 
+      Year = col_integer(), 
+      `% callable` = col_double(), 
+      Fws = col_double(), 
+      F_MISS = col_double()
+    ), 
+    progress = FALSE
+  ) %>%
+  filter(
+    (Population == "ESEA") |
+    (Population == "LAM") |
+    (Country == "Ethiopia")
+  ) %>%
+  select(locus, sample_id, hapseq, Population) %>%
+  mutate(panel = "PvGTSeq") %>%
+  # Filter out DR markers
+  filter(str_sub(locus, 1L, 2L) != "pv")
+unique(mh_pvgtseq$locus)
+length(unique(mh_pvgtseq$locus))
 mh_full <- bind_cols(
     mh_pvgap, 
-    mh_kleinecke
+    mh_kleinecke, 
+    mh_pvgtseq
   )
 
 # Compute allele frequency with Dcifer ----------------------------------
