@@ -65,8 +65,6 @@ localrules:
     filter_samps, 
     fmt_kleinecke_bed, 
     fmt_pvgtseq_bed, 
-    apply_variants, 
-    filter2hapseq, 
     compute_marker_metrics, 
     analyze_rel_power, 
     plot_panel_target_metrics, 
@@ -952,6 +950,11 @@ rule apply_variants:
         vcf = malariagen_filtered_by_samp, 
         ref = ref_genome
     output: temp(ref_w_variants)
+    resources:
+        time = 10, 
+        mem_mb = 2000
+    threads: 1
+    benchmark: os.path.join("benchmarks", "apply_variants_{samp}.tsv")
     shell:
         # Note that this method of obtaining the haplotype sequence 
         # ignores the read depth of each allele, which could be a 
@@ -974,6 +977,11 @@ rule filter2hapseq:
         fasta = ref_w_variants, 
         bed = panel_bed
     output: hapseq
+    resources:
+        time = 10, 
+        mem_mb = 2000
+    threads: 1
+    benchmark: os.path.join("benchmarks", "filter2hapseq_{panel}_{samp}.tsv")
     # Index files for the input fasta are automatically generated
     shadow: "full"
     shell:

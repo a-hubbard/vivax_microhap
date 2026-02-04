@@ -33,7 +33,9 @@ if (interactive()) {
 target_info <- read_excel(arg$target_info) %>%
   select(Chromosome, Start, End, Amplicon_name, Final_set) %>%
   filter(Final_set == 1) %>%
-  select(-Final_set)
+  select(-Final_set) %>%
+  # Remove mitochondria target
+  filter(Chromosome != "PvP01_MIT_v1")
 
 # Read and join chromosome name key ------------------------------------
 chrom_key <- read_tsv(

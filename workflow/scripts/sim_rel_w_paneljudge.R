@@ -47,8 +47,8 @@ opts <- list(
 arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
 if (interactive()) {
-  arg$bed <- "../../results/primer_mapping/captured_seq_coords_good_amp.bed"
-  arg$af <- "../../results/af/af_PvGAP_AF.tsv"
+  arg$bed <- "../../results/panel_beds/Kleinecke.bed"
+  arg$af <- "../../results/af/af_Kleinecke_AF.tsv"
   arg$shared_functions <- "../shared_functions.R"
   arg$n_pair <- 1
   arg$seed <- 1
@@ -131,6 +131,13 @@ sim_rel_w_panel <- function(af_long, distances, n_pair = 5) {
 
 }
 
+# Read in allele frequencies -------------------------------------------
+af <- read_tsv(
+    arg$af, 
+    col_types = cols(.default = col_character(), freq = col_double()), 
+    progress = FALSE
+  )
+
 # Read in BED file describing panel markers ----------------------------
 marker_info <- read_tsv(
     arg$bed, 
@@ -150,15 +157,8 @@ marker_info <- read_tsv(
     progress = FALSE
   ) %>%
   select(-score, -strand) %>%
-  # Filter to diversity loci
-  filter(str_detect(target_id, "PvP01"))
-
-# Read in allele frequencies -------------------------------------------
-af <- read_tsv(
-    arg$af, 
-    col_types = cols(.default = col_character(), freq = col_double()), 
-    progress = FALSE
-  )
+  # Filter to loci with allele frequencies
+  filter(target_id %in% af$target_id)
 
 # Compute between marker distances -------------------------------------
 marker_info <- marker_info %>%

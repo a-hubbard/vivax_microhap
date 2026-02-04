@@ -117,6 +117,8 @@ mh_pvgap <- read_csv(
   mutate(panel = "PvGAP") %>%
   # Filter to diversity loci
   filter(str_detect(locus, "PvP01"))
+unique(mh_pvgap$locus)
+length(unique(mh_pvgap$locus))
 mh_kleinecke <- read_csv(
     inp$mh_kleinecke, 
     col_types = cols(
@@ -165,7 +167,7 @@ mh_pvgtseq <- read_csv(
   filter(str_sub(locus, 1L, 2L) != "pv")
 unique(mh_pvgtseq$locus)
 length(unique(mh_pvgtseq$locus))
-mh_full <- bind_cols(
+mh_full <- bind_rows(
     mh_pvgap, 
     mh_kleinecke, 
     mh_pvgtseq
@@ -179,7 +181,7 @@ af <- mh_full %>%
   unnest(allele_freqs)
 
 # Write allele frequencies for use in relatedness simulations ----------
-panels <- c("PvGAP")
+panels <- c("PvGAP", "Kleinecke", "PvGTSeq")
 pops <- unique(mh_full$Population)
 for (panel in panels) {
   for (pop in pops) {

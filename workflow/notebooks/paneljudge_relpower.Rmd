@@ -69,11 +69,13 @@ rel_sim_res <- rel_sim_res %>%
 # Compute and plot 95% CI widths of rhat by data-generating r ----------
 rel_sim_res %>%
   mutate(ci_width = ci_97_5 - ci_2_5) %>%
+  filter(datagen_r %in% c(0.01, 0.15, 0.25, 0.5, 0.99)) %>%
   mutate(datagen_r = as.character(datagen_r)) %>%
   ggplot(mapping = aes(y = ci_width, x = datagen_r, color = panel)) +
   geom_boxplot() +
   facet_wrap(vars(pop_lbl)) +
-  labs(x = "Data-generating r", y = "95% confidence interval width of rhat")
+  labs(x = "Data-generating r", y = "95% confidence interval width of rhat") +
+  theme(legend.position = "bottom")
 ```
 
 These boxplots show the distribution of CI widths for the relatedness estimate
@@ -90,7 +92,8 @@ rel_sim_res %>%
   geom_line() +
   geom_point() +
   facet_wrap(vars(pop_lbl)) +
-  labs(x = "Data-generating r", y = "RMSE of rhat")
+  labs(x = "Data-generating r", y = "RMSE of rhat") +
+  theme(legend.position = "bottom")
 ```
 
 These plots show the RMSE of rhat for each data-generating r value, facetted by
