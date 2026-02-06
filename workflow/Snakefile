@@ -111,6 +111,9 @@ supp_texts = {"may2022": "supptext1"}
 supp_text_flag_template = os.path.join(".flags", "push_supptext_{supptext}")
 # Other outputs
 locus_metadata = os.path.join("results", "locus_metadata.tsv")
+qc_dir = os.path.join("results", "seq_qc")
+multiqc_dir = os.path.join(qc_dir, "{run_id}", "multiqc")
+multiqc_report = os.path.join(multiqc_dir, "multiqc_report.html")
 biosample_attributes = os.path.join(
     "results", 
     "uci1223_biosample_attributes.tsv")
@@ -125,6 +128,7 @@ rule all:
         figs_tables_doc_flag, 
         expand(supp_text_flag_template, supptext=list(supp_texts.values())), 
         locus_metadata, 
+        expand(multiqc_report, run_id=["uci1223","serialdil"]), 
         biosample_attributes
 # For others attempting to run the pipeline on their own machine
 rule replicate:
@@ -142,6 +146,7 @@ rule replicate:
             supptext=list(supp_texts.values())), 
         figs_tables_doc, 
         locus_metadata, 
+        expand(multiqc_report, run_id=["uci1223","serialdil"]), 
         biosample_attributes
 
 # Reformat and filter primers
@@ -382,69 +387,66 @@ rule assess_marker_performance:
            output_dir = "{rendered_notebook_dir}")'
         """
 
-# Check quality of UCI 12/23 data
+# Run FastQC and MultiQC
+# Build dictionary of run IDs and FASTQ file lists
 raw_seq_dir = os.path.join("resources", "seq_data")
+may2022_seqs = glob.glob(
+        os.path.join(raw_seq_dir,"PV_GTSeq_May2022","*.fastq.gz"))
 uci1223_dir = os.path.join(raw_seq_dir, "lbradle123121251")
 uci1223_seqs = [
-    f for f in glob.glob(os.path.join(uci1223_dir,"*.txt.gz")) if "PrNotRecog" 
+    f for f in glob.glob(os.path.join(uci1223_dir,"*.fastq.gz")) if "PrNotRecog" 
     not in f]
-qc_dir = os.path.join("results", "seq_qc")
-uci1223_qc_dir = os.path.join(qc_dir, "uci1223")
-uci1223_fastqc_dir = os.path.join(uci1223_qc_dir, "fastqc")
-uci1223_fastqc_outbase = [
-    os.path.join(uci1223_fastqc_dir,os.path.basename(fq)[:-7]+"_fastqc.{ext}") 
-    for fq in uci1223_seqs]
-uci1223_fastqc_out = expand(uci1223_fastqc_outbase, ext=["html","zip"])
-rule fastqc_uci1223_data:
-    input: uci1223_seqs
-    output: uci1223_fastqc_out
-    resources:
-        time = 60, 
-        mem_mb = 8000
-    threads: 8
-    benchmark: os.path.join("benchmarks", "fastqc_uci1223_data.tsv")
-    shell: "fastqc -o {uci1223_fastqc_dir} -t {threads} {input}"
-uci1223_multiqc_dir = os.path.join(uci1223_qc_dir, "multiqc")
-uci1223_multiqc_report = os.path.join(
-    uci1223_multiqc_dir, 
-    "multiqc_report.html")
-rule multiqc_uci1223_data:
-    input: uci1223_fastqc_out
-    output: uci1223_multiqc_report
-    shell: "multiqc --outdir {uci1223_multiqc_dir} --force {uci1223_fastqc_dir}"
-
-# Check quality of serial dilutions FASTQs
-raw_seq_dir = os.path.join("resources", "seq_data")
+# Sort list so that READ2 will always follow READ1
+uci1223_seqs.sort()
 serialdil_dir = os.path.join(raw_seq_dir, "serialdil")
 serialdil_seqs = [
     f for f in glob.glob(os.path.join(serialdil_dir,"*R*_001.fastq.gz")) if "Undetermined" 
     not in f]
-qc_dir = os.path.join("results", "seq_qc")
-serialdil_qc_dir = os.path.join(qc_dir, "serialdil")
-serialdil_fastqc_dir = os.path.join(serialdil_qc_dir, "fastqc")
-serialdil_fastqc_outbase = [
-    os.path.join(serialdil_fastqc_dir,os.path.basename(fq)[:-9]+"_fastqc.{ext}") 
-    for fq in serialdil_seqs]
-serialdil_fastqc_out = expand(serialdil_fastqc_outbase, ext=["html","zip"])
-rule fastqc_serialdil_data:
-    input: serialdil_seqs
-    output: serialdil_fastqc_out
+seq_dict = {
+    "May2022": may2022_seqs, 
+    "UCI1223": uci1223_seqs, 
+    "serialdil": serialdil_seqs
+}
+# Build dictionary of basenames of sequence file paths
+seq_basename_dict = {}
+for key in seq_dict:
+    seq_basenames = [os.path.basename(f)[:-9] for f in seq_dict[key]]
+    seq_basename_dict[key] = seq_basenames
+rule fastqc:
+    input: 
+        lambda wildcards: seq_dict[wildcards.run_id]
+    output: 
+        lambda wildcards: expand(
+            os.path.join(
+                qc_dir,
+                "{{run_id}}",
+                "fastqc",
+                "{sample_id}_fastqc.html"), 
+            sample_id=seq_basename_dict[wildcards.run_id])
+    params: 
+        out_dir = os.path.join(qc_dir, "{run_id}", "fastqc")
     resources:
         time = 60, 
         mem_mb = 8000
     threads: 8
-    benchmark: os.path.join("benchmarks", "fastqc_serialdil_data.tsv")
-    shell: "fastqc -o {serialdil_fastqc_dir} -t {threads} {input}"
-serialdil_multiqc_dir = os.path.join(serialdil_qc_dir, "multiqc")
-serialdil_multiqc_report = os.path.join(
-    serialdil_multiqc_dir, 
-    "multiqc_report.html")
-rule multiqc_serialdil_data:
-    input: serialdil_fastqc_out
-    output: serialdil_multiqc_report
-    shell: "multiqc --outdir {serialdil_multiqc_dir} --force {serialdil_fastqc_dir}"
+    benchmark: os.path.join("benchmarks", "fastqc_{run_id}.tsv")
+    shell: "fastqc -o {params.out_dir} -t {threads} {input}"
+rule multiqc:
+    input: 
+        lambda wildcards: expand(
+            os.path.join(
+                qc_dir,
+                "{{run_id}}",
+                "fastqc",
+                "{sample_id}_fastqc.html"), 
+            sample_id=seq_basename_dict[wildcards.run_id])
+    output: multiqc_report
+    params: 
+        inp_dir = os.path.join(qc_dir, "{run_id}", "fastqc"), 
+        out_dir = multiqc_dir
+    shell: "multiqc --outdir {params.out_dir} --force {params.inp_dir}"
 
-# Run AmpSeQC on May 2022 and UCI 12/23 data
+# Run AmpSeQC
 # AmpSeQC requires a FAI index of the reference genome
 ref_genome_fai = ref_genome + ".fai"
 rule index_ref_samtools:
@@ -484,14 +486,6 @@ ampseqc = "~/AmpSeQC/AmpSeQC.py"
 ampseqc_dir = os.path.join("results", "AmpSeQC")
 ampseqc_seqrun_dir = os.path.join(ampseqc_dir, "{seqrun}")
 read_counts = os.path.join(ampseqc_seqrun_dir, "read_counts.tsv")
-may2022_seqs = glob.glob("resources/seq_data/PV_GTSeq_May2022/*.fastq.gz")
-# Sort list so that READ2 will always follow READ1
-uci1223_seqs.sort()
-seq_dict = {
-    "May2022": may2022_seqs, 
-    "UCI1223": uci1223_seqs, 
-    "serialdil": serialdil_seqs
-}
 rule run_ampseqc:
     input:
         ref_genome_fai, 
