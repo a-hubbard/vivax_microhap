@@ -31,7 +31,8 @@ theme_set(theme_bw())
 inp <- list(
   may2022_read_counts = "../../results/AmpSeQC/May2022/read_counts.tsv", 
   uci1223_read_counts = "../../results/AmpSeQC/UCI1223/read_counts.tsv", 
-  serialdil_read_counts = "../../results/AmpSeQC/serialdil/read_counts.tsv"
+  serialdil1_read_counts = "../../results/AmpSeQC/serialdil1/read_counts.tsv", 
+  serialdil2_read_counts = "../../results/AmpSeQC/serialdil2/read_counts.tsv"
 )
 out <- list(loci_good_amp = "../../results/loci2filter/good_amp.csv")
 ```
@@ -226,15 +227,17 @@ tibble(locus = loci_good_amp) %>%
 
 ## Serial Dilutions
 
+### Run 1
+
 ```{r message = FALSE}
 # Read in read counts --------------------------------------------------
-serialdil_read_counts <- read_tsv(
-    inp$serialdil_read_counts, 
+serialdil1_read_counts <- read_tsv(
+    inp$serialdil1_read_counts, 
     col_types = cols(.default = col_integer(), sample = col_character()), 
     progress = FALSE
   ) %>%
   rename(sample_id = sample)
-serialdil_read_counts_byloc <- serialdil_read_counts %>%
+serialdil1_read_counts_byloc <- serialdil1_read_counts %>%
   select(
     -`__no_feature`, 
     -`__ambiguous`, 
@@ -252,15 +255,15 @@ verifies this is true:
 
 ```{r}
 # Make sure none of old loci were included -----------------------------
-serialdil_read_counts_byloc %>%
+serialdil1_read_counts_byloc %>%
   filter(! locus %in% loci_good_amp) %$%
   sum(n_read)
-serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
+serialdil1_read_counts_byloc <- serialdil1_read_counts_byloc %>%
   filter(locus %in% loci_good_amp)
 ```
 
 ```{r}
-plot_failed_reads(serialdil_read_counts)
+plot_failed_reads(serialdil1_read_counts)
 ```
 
 These histograms show the number of replicates with a certain number of reads 
@@ -271,10 +274,10 @@ The total number of reads that passed AmpSeQC's filters is:
 
 ```{r fig.width = 14, fig.height = 5.5}
 # Print total read count -----------------------------------------------
-sum(serialdil_read_counts_byloc$n_read)
+sum(serialdil1_read_counts_byloc$n_read)
 
-# Read in and join metadata sheet --------------------------------------
-serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
+# Extract metadata from sample name ------------------------------------
+serialdil1_read_counts_byloc <- serialdil1_read_counts_byloc %>%
   separate_wider_delim(sample_id, "_", names = c("sample_id", NA, NA)) %>%
   separate_wider_delim(
     sample_id, 
@@ -285,9 +288,9 @@ serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
   mutate(parasitemia = as.integer(parasitemia))
 
 # Plot read counts by locus and replicate ------------------------------
-for (s in unique(serialdil_read_counts_byloc$specimen_id)) {
+for (s in unique(serialdil1_read_counts_byloc$specimen_id)) {
   title_lbl <- str_c("Sample", str_sub(s, start = 2L), sep = " ")
-  serialdil_read_counts_byloc %>%
+  serialdil1_read_counts_byloc %>%
     filter(specimen_id == s) %>%
     arrange(parasitemia, desc(rep_id)) %>%
     mutate(
@@ -305,7 +308,7 @@ for (s in unique(serialdil_read_counts_byloc$specimen_id)) {
 }
 ```
 
-These heatmaps shows the number of reads identified for each locus/replicate
+These heatmaps show the number of reads identified for each locus/replicate
 combination, one heatmap per sample in the serial dilution experiment.
 
 From these plots, we can see that read counts generally diminish with decreasing
@@ -317,19 +320,134 @@ work well at all. Also, samples five and six generally seem to have amplified
 worse than the others, even once you account for the fact that they did not have
 the highest parasitemia classes.
 
+### Run 2
+
+```{r message = FALSE}
+# Read in read counts --------------------------------------------------
+serialdil2_read_counts <- read_tsv(
+    inp$serialdil2_read_counts, 
+    col_types = cols(.default = col_integer(), sample = col_character()), 
+    progress = FALSE
+  ) %>%
+  rename(sample_id = sample)
+serialdil2_read_counts_byloc <- serialdil2_read_counts %>%
+  select(
+    -`__no_feature`, 
+    -`__ambiguous`, 
+    -`__too_low_aQual`, 
+    -`__not_aligned`, 
+    -`__alignment_not_unique`
+  ) %>%
+  pivot_longer(-sample_id, names_to = "locus", values_to = "n_read")
+```
+
+The read counts table includes all of the old loci because those were in the
+files passed to AmpSeQC, but none of them should have been included in this
+version of the panel. None of those loci received any reads in this run, which
+verifies this is true:
+
+```{r}
+# Make sure none of old loci were included -----------------------------
+serialdil2_read_counts_byloc %>%
+  filter(! locus %in% loci_good_amp) %$%
+  sum(n_read)
+serialdil2_read_counts_byloc <- serialdil2_read_counts_byloc %>%
+  filter(locus %in% loci_good_amp)
+```
+
+```{r}
+plot_failed_reads(serialdil2_read_counts)
+```
+
+These histograms show the number of replicates with a certain number of reads 
+that failed for each reason identified by AmpSeQC. For all of the failure
+conditions, the read counts are at or near 0, indicating no cause for concern.
+
+The total number of reads that passed AmpSeQC's filters is:
+
+```{r fig.width = 14, fig.height = 5.5}
+# Print total read count -----------------------------------------------
+sum(serialdil2_read_counts_byloc$n_read)
+
+# Extract metadata from sample name ------------------------------------
+serialdil2_read_counts_byloc <- serialdil2_read_counts_byloc %>%
+  separate_wider_delim(sample_id, "_", names = c("sample_id", NA, NA)) %>%
+  separate_wider_delim(
+    sample_id, 
+    "-", 
+    names = c("well", "specimen_id", "parasitemia", "protocol"), 
+    cols_remove = FALSE
+  ) %>%
+  mutate(parasitemia = as.integer(parasitemia))
+
+# Plot read counts by locus and replicate ------------------------------
+for (s in unique(serialdil2_read_counts_byloc$specimen_id)) {
+  title_lbl <- str_c("Sample", str_sub(s, start = 3L), sep = " ")
+  serialdil2_read_counts_byloc %>%
+    filter(specimen_id == s) %>%
+    arrange(protocol, parasitemia) %>%
+    mutate(
+      sample_id = factor(sample_id, levels = unique(sample_id), ordered = TRUE)
+    ) %>%
+    read_count_heatmap(
+       fill_scale = scale_fill_fermenter(
+         palette = "YlGnBu", 
+         name = "Reads", 
+         breaks = c(1, 10, 100, 1000, 2000)
+       ), 
+      title_lbl = title_lbl
+    ) %>%
+    print()
+}
+```
+
+These heatmap shows the number of reads identified for each locus/replicate
+combination, one heatmap per sample in the serial dilution experiment.
+
+From these plots, we can see that amplification was generally quite good, in 
+stark contrast to the first serial dilution run.
+
+```{r}
+# Compare performance of protocol versions -----------------------------
+serialdil2_read_counts_byloc %>%
+  # Both protocols were only used at this parasitemia
+  filter(parasitemia == 100) %>%
+  group_by(specimen_id, protocol) %>%
+  summarize(mean_reads = mean(n_read), .groups = "drop") %>%
+  ggplot(mapping = aes(x = specimen_id, y = mean_reads, fill = protocol)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  labs(
+    x = "Sample ID", 
+    y = "Mean Reads Across Loci and Replicates", 
+    fill = "Protocol"
+  )
+```
+
+This bar plot shows the mean reads obtained across all loci and replicates for
+each sample, with different color bars showing different protocol versions.
+
+Curiously, the earlier protocol seems to have achieved better amplification in
+most samples.
+
+## Problematic Loci
+
 ```{r fig.height = 3.5}
 # Bind all sequencing runs into one tibble -----------------------------
 may2022_read_counts_byloc <- may2022_read_counts_byloc %>%
   mutate(run = "may2022")
 uci1223_read_counts_byloc <- uci1223_read_counts_byloc %>%
   mutate(run = "uci1223")
-serialdil_read_counts_byloc <- serialdil_read_counts_byloc %>%
+serialdil1_read_counts_byloc <- serialdil1_read_counts_byloc %>%
   select(-specimen_id, -parasitemia, -rep_id) %>%
-  mutate(run = "serialdil")
+  mutate(run = "serialdil1")
+serialdil2_read_counts_byloc <- serialdil2_read_counts_byloc %>%
+  select(sample_id, locus, n_read) %>%
+  mutate(run = "serialdil2")
 read_counts_byloc <- bind_rows(
     may2022_read_counts_byloc, 
     uci1223_read_counts_byloc, 
-    serialdil_read_counts_byloc
+    serialdil1_read_counts_byloc, 
+    serialdil2_read_counts_byloc
   ) %>%
   filter(locus %in% loci_good_amp)
 
@@ -350,22 +468,21 @@ mean_reads_per_sample %>%
 ```
 
 These histograms show the mean reads per sample for each locus, with facets
-separating results for each of the three sequencing runs analyzed above. The 
-serial dilution experiment did yield fewer reads for many loci, which is not 
-necessarily unexpected given the intentionally low parasite densities.
+separating results for each of the sequencing runs analyzed above. We can see
+that for some reason the first serial dilution experiment had overall poor
+amplification, while the second one was quite good.
 
-However, a larger number of loci had very few reads, compared to previous 
-sequencing experiments. In addition, three loci completely failed, which has not 
-happened before:
+This table shows loci with low amplification in each sequencing run:
 
 ```{r}
 mean_reads_per_sample %>%
   filter(mean_reads_per_sample < 10)
 ```
 
-Also, loci that amplify badly continue to be inconsistent between different 
+Loci that amplify badly tend to be inconsistent between different 
 runs. PvP01_07_v1_500001_500200 failed in the May 2022 experiment, and has been 
 fine since. PvP01_08_v1_1279701_1279900 and pvdbp.503 amplified badly (though 
-not a complete failure) in Lauren's data, and were OK in the other two runs. In
-the serial dilutions, six loci that have previously been OK either completely
-failed or yielded very low reads.
+not a complete failure) in Lauren's data, and were OK in the other runs. Three 
+loci failed in the second serial dilution run, as well as the first, but were OK 
+in the earlier runs. Also, pvk12.124MI.151QK failed for the first time in this 
+run.
