@@ -44,8 +44,7 @@ localrules:
     analyze_ampseqc_results, 
     filter_bed, 
     filter_primers, 
-    multiqc_uci1223_data, 
-    multiqc_serialdil_data, 
+    multiqc, 
     list_uci1223_fastqs, 
     postproc_dada2_uci1223, 
     asv2cigar_uci1223, 
@@ -128,7 +127,7 @@ rule all:
         figs_tables_doc_flag, 
         expand(supp_text_flag_template, supptext=list(supp_texts.values())), 
         locus_metadata, 
-        expand(multiqc_report, run_id=["uci1223","serialdil"]), 
+        expand(multiqc_report, run_id=["UCI1223","serialdil1","serialdil2"]), 
         biosample_attributes
 # For others attempting to run the pipeline on their own machine
 rule replicate:
@@ -146,7 +145,7 @@ rule replicate:
             supptext=list(supp_texts.values())), 
         figs_tables_doc, 
         locus_metadata, 
-        expand(multiqc_report, run_id=["uci1223","serialdil"]), 
+        expand(multiqc_report, run_id=["uci1223","serialdil1","serialdil2"]), 
         biosample_attributes
 
 # Reformat and filter primers
@@ -398,39 +397,47 @@ uci1223_seqs = [
     not in f]
 # Sort list so that READ2 will always follow READ1
 uci1223_seqs.sort()
-serialdil_dir = os.path.join(raw_seq_dir, "serialdil")
-serialdil_seqs = [
-    f for f in glob.glob(os.path.join(serialdil_dir,"*R*_001.fastq.gz")) if "Undetermined" 
+serialdil1_dir = os.path.join(raw_seq_dir, "serialdil1")
+serialdil1_seqs = [
+    f for f in glob.glob(os.path.join(serialdil1_dir,"*R*_001.fastq.gz")) if "Undetermined" 
+    not in f]
+serialdil2_dir = os.path.join(raw_seq_dir, "serialdil2")
+serialdil2_seqs = [
+    f for f in glob.glob(os.path.join(serialdil2_dir,"*R*_001.fastq.gz")) if "Undetermined" 
     not in f]
 seq_dict = {
     "May2022": may2022_seqs, 
     "UCI1223": uci1223_seqs, 
-    "serialdil": serialdil_seqs
+    "serialdil1": serialdil1_seqs, 
+    "serialdil2": serialdil2_seqs
 }
 # Build dictionary of basenames of sequence file paths
 seq_basename_dict = {}
 for key in seq_dict:
     seq_basenames = [os.path.basename(f)[:-9] for f in seq_dict[key]]
     seq_basename_dict[key] = seq_basenames
-rule fastqc:
-    input: 
-        lambda wildcards: seq_dict[wildcards.run_id]
-    output: 
-        lambda wildcards: expand(
-            os.path.join(
-                qc_dir,
-                "{{run_id}}",
-                "fastqc",
-                "{sample_id}_fastqc.html"), 
-            sample_id=seq_basename_dict[wildcards.run_id])
-    params: 
-        out_dir = os.path.join(qc_dir, "{run_id}", "fastqc")
-    resources:
-        time = 60, 
-        mem_mb = 8000
-    threads: 8
-    benchmark: os.path.join("benchmarks", "fastqc_{run_id}.tsv")
-    shell: "fastqc -o {params.out_dir} -t {threads} {input}"
+# Due to the constraints of different FASTQ filenames in the inputs for 
+# different runs and the need to specify output names dynamically based 
+# on these inputs, I could think of no better way to do this than 
+# defining rules in a loop
+for run_id in seq_dict:
+    fastqc_dir = os.path.join(qc_dir, "{run_id}", "fastqc")
+    seq_basenames = [os.path.basename(f)[:-9] for f in seq_dict[run_id]]
+    out_htmls = [
+            os.path.join(fastqc_dir,bn)+"_fastqc.html" for bn in seq_basenames]
+    rule:
+        name: f"fastqc_{run_id}"
+        input: 
+            lambda wildcards: seq_dict[wildcards.run_id]
+        output: out_htmls
+        params: 
+            out_dir = fastqc_dir
+        resources:
+            time = 60, 
+            mem_mb = 8000
+        threads: 8
+        benchmark: os.path.join("benchmarks", "fastqc_{run_id}.tsv")
+        shell: "fastqc -o {params.out_dir} -t {threads} {input}"
 rule multiqc:
     input: 
         lambda wildcards: expand(
@@ -528,7 +535,9 @@ loci2filter_dir = os.path.join("results", "loci2filter")
 loci2filter_good_amp = os.path.join(loci2filter_dir, "good_amp.csv")
 rule analyze_ampseqc_results:
     input:
-        expand(read_counts, seqrun=["May2022","UCI1223", "serialdil"]), 
+        expand(
+            read_counts, 
+            seqrun=["May2022","UCI1223","serialdil1","serialdil2"]), 
         code = os.path.join("workflow", "notebooks", "ampseqc_results.Rmd")
     output: 
         multiext(notebooks["ampseqc_results"], ".nb.html", ".pdf", ".md"), 
