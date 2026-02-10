@@ -45,11 +45,10 @@ localrules:
     filter_bed, 
     filter_primers, 
     multiqc, 
-    list_uci1223_fastqs, 
-    postproc_dada2_uci1223, 
-    asv2cigar_uci1223, 
-    assess_microhap_quantity_uci1223, 
-    tidy_microhap_uci1223, 
+    list_fastqs, 
+    postproc_dada2, 
+    asv2cigar, 
+    assess_microhap_quantity, 
     format_biosample_attributes, 
     dwnld_ref_gff, 
     unzip_ref_gff, 
@@ -84,8 +83,7 @@ notebook_basenames = [
     "investigate_mapping", 
     "marker_performance", 
     "ampseqc_results", 
-    "microhap_quantity_uci1223", 
-    "tidy_microhap_uci1223", 
+    "microhap_quantity", 
     "sample_properties", 
     "paneljudge_markermetrics", 
     "paneljudge_relpower"]
@@ -145,7 +143,7 @@ rule replicate:
             supptext=list(supp_texts.values())), 
         figs_tables_doc, 
         locus_metadata, 
-        expand(multiqc_report, run_id=["uci1223","serialdil1","serialdil2"]), 
+        expand(multiqc_report, run_id=["UCI1223","serialdil1","serialdil2"]), 
         biosample_attributes
 
 # Reformat and filter primers
@@ -642,48 +640,50 @@ rule refmt_annot:
     output: locus_metadata
     shell: "Rscript {input.code} --annot {input.panel_annot} --out {output}"
 
-# Preprocess UCI 12/23 data into microhaplotypes
+# Call microhaplotypes
 # Create TSV file listing FASTQs
 ampseq_dir = os.path.join("results", "AmpSeq")
-ampseq_uci1223_dir = os.path.join(ampseq_dir, "uci1223")
-uci1223_fastq_list = os.path.join(ampseq_uci1223_dir, "fastq_list.tsv")
-rule list_uci1223_fastqs:
-    input: uci1223_seqs
-    output: uci1223_fastq_list
+ampseq_run_dir = os.path.join(ampseq_dir, "{run_id}")
+fastq_list = os.path.join(ampseq_run_dir, "fastq_list.tsv")
+rule list_fastqs:
+    input: 
+        lambda wildcards: seq_dict[wildcards.run_id]
+    output: fastq_list
     run:
         with open(output[0], 'w') as out_f:
             for fq in input:
-                fq_elements = os.path.basename(fq).split('-')
-                if fq_elements[5] == "READ1":
-                    sample_id = fq_elements[2]
-                    r2_fq = fq.replace('READ1', 'READ2')
-                    out_f.write('\t'.join([sample_id,fq,r2_fq+'\n']))
+                if wildcards.run_id == "UCI1223":
+                    fq_elements = os.path.basename(fq).split('-')
+                    if fq_elements[5] == "READ1":
+                        sample_id = fq_elements[2]
+                        r2_fq = fq.replace('READ1', 'READ2')
+                        out_f.write('\t'.join([sample_id,fq,r2_fq+'\n']))
+                else:
+                    fq_elements = os.path.basename(fq).split('_')
+                    if fq_elements[3] == "R1":
+                        sample_id = fq_elements[0]
+                        r2_fq = fq.replace('R1', 'R2')
+                        out_f.write('\t'.join([sample_id,fq,r2_fq+'\n']))
 fwd_primers_filtered = os.path.join("results", "fwd_primers_filtered.fasta")
 rev_primers_filtered = os.path.join("results", "rev_primers_filtered.fasta")
 ampseq_tool_dir = "~/malaria-amplicon-pipeline"
-uci1223_seqtab = os.path.join(ampseq_uci1223_dir, "run_dada2", "seqtab.tsv")
-uci1223_bimeras = os.path.join(
-    ampseq_uci1223_dir, 
-    "run_dada2", 
-    "ASVBimeras.txt")
-uci1223_reads_summ = os.path.join(
-    ampseq_uci1223_dir, 
-    "run_dada2", 
-    "reads_summary.txt")
-rule run_ampseq_uci1223:
+seqtab = os.path.join(ampseq_run_dir, "run_dada2", "seqtab.tsv")
+bimeras = os.path.join(ampseq_run_dir, "run_dada2", "ASVBimeras.txt")
+reads_summ = os.path.join(ampseq_run_dir, "run_dada2", "reads_summary.txt")
+rule run_ampseq:
     input:
-        fastq_list = uci1223_fastq_list, 
+        fastq_list = fastq_list, 
         fwd_primers = fwd_primers_filtered, 
         rev_primers = rev_primers_filtered
     output:
-        uci1223_seqtab, 
-        uci1223_bimeras, 
-        uci1223_reads_summ
+        seqtab, 
+        bimeras, 
+        reads_summ
     resources:
         time = 120, 
         mem_mb = 128000
     threads: 16
-    benchmark: os.path.join("benchmarks", "run_ampseq_uci1223.tsv")
+    benchmark: os.path.join("benchmarks", "run_ampseq_{run_id}.tsv")
     conda: "ampseq"
     shell:
         # Due to issues with the argument passing from 
@@ -711,35 +711,35 @@ rule run_ampseq_uci1223:
         "{input.fastq_list} --pr1 {input.fwd_primers} --pr2 "
         "{input.rev_primers} --Class parasite --trimRight '2,2' --minLen 30 "
         "--max_consist 10 --omegaA '1e-120' --justConcatenate 0"
-uci1223_asvtab = os.path.join(ampseq_uci1223_dir, "asvtab.tsv")
-uci1223_asv_fastas = os.path.join(ampseq_uci1223_dir, "ASVSeqs.fasta")
-rule postproc_dada2_uci1223:
+asvtab = os.path.join(ampseq_run_dir, "asvtab.tsv")
+asv_fastas = os.path.join(ampseq_run_dir, "ASVSeqs.fasta")
+rule postproc_dada2:
     input:
-        seqtab = uci1223_seqtab, 
-        bimeras = uci1223_bimeras, 
+        seqtab = seqtab, 
+        bimeras = bimeras, 
         ref = captured_seq
     output:
-        uci1223_asv_fastas, 
-        asvtab = uci1223_asvtab
+        asv_fastas, 
+        asvtab = asvtab
     conda: "ampseq"
     shell:
         "Rscript {ampseq_tool_dir}/postProc_dada2.R -s {input.seqtab} -ref "
         "{input.ref} -b {input.bimeras} -o {output.asvtab} --fasta "
         "--indel_filter 0.895 --strain PvP01"
-asv2cigar_uci1223_dir = os.path.join(ampseq_uci1223_dir, "asv2cigar")
-uci1223_seqtab_cigar = os.path.join(asv2cigar_uci1223_dir, "seqtab_cigar.tsv")
-uci1223_asv2cigar_tab = os.path.join(asv2cigar_uci1223_dir, "asv2cigar_tab.tsv")
-rule asv2cigar_uci1223:
+asv2cigar_dir = os.path.join(ampseq_run_dir, "asv2cigar")
+seqtab_cigar = os.path.join(asv2cigar_dir, "seqtab_cigar.tsv")
+asv2cigar_tab = os.path.join(asv2cigar_dir, "asv2cigar_tab.tsv")
+rule asv2cigar:
     input:
-        asv_fastas = uci1223_asv_fastas, 
-        asvtab = uci1223_asvtab, 
-        seqtab = uci1223_seqtab, 
+        asv_fastas = asv_fastas, 
+        asvtab = asvtab, 
+        seqtab = seqtab, 
         ref = captured_seq
     output:
-        seqtab_cigar = uci1223_seqtab_cigar, 
-        asv2cigar_tab = uci1223_asv2cigar_tab
+        seqtab_cigar = seqtab_cigar, 
+        asv2cigar_tab = asv2cigar_tab
     params:
-        alignments_dir = os.path.join(asv2cigar_uci1223_dir, "alignments")
+        alignments_dir = os.path.join(asv2cigar_dir, "alignments")
     conda: "ampseq"
     shell:
         "python {ampseq_tool_dir}/ASV_to_CIGAR.py --asv_to_cigar "
@@ -748,55 +748,34 @@ rule asv2cigar_uci1223:
         "--max_indel_dist 15 {input.asv_fastas} {input.asvtab} {input.seqtab} "
         "{output.seqtab_cigar}"
 
-# Assess amplicon yield from UCI 12/23 run
+# Assess amplicon yield
 uci1223_rep_metadata = os.path.join(
     "resources", 
     "MH_template__LB_EHS_dz07242024_to_liz.xlsx")
-uci1223_sl_read_counts = os.path.join(ampseq_uci1223_dir, "sl_read_counts.csv")
-uci1223_s_read_counts_parasitemia = os.path.join(
-    ampseq_uci1223_dir, 
+sl_read_counts = os.path.join(ampseq_dir, "UCI1223", "sl_read_counts.csv")
+s_read_counts_parasitemia = os.path.join(
+    ampseq_dir, 
+    "UCI1223", 
     "s_read_counts_parasitemia.csv")
-rule assess_microhap_quantity_uci1223:
+ampseq_runs = ["UCI1223", "serialdil2"]
+rule assess_microhap_quantity:
     input:
-        uci1223_reads_summ, 
-        uci1223_seqtab_cigar, 
+        expand(reads_summ, run_id=ampseq_runs), 
+        expand(seqtab_cigar, run_id=ampseq_runs), 
         locus_metadata, 
         uci1223_rep_metadata, 
         code = os.path.join(
             "workflow", 
             "notebooks", 
-            "microhap_quantity_uci1223.Rmd")
+            "microhap_quantity.Rmd")
     output: 
         multiext(
-            notebooks["microhap_quantity_uci1223"], 
+            notebooks["microhap_quantity"], 
             ".nb.html", 
             ".pdf", 
             ".md"), 
-        uci1223_sl_read_counts, 
-        uci1223_s_read_counts_parasitemia
-    shell:
-        """
-        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
-           output_dir = "{rendered_notebook_dir}")'
-        """
-microhap_dir = os.path.join("results", "microhap")
-uci1223_microhap_dir = os.path.join(microhap_dir, "uci1223")
-mh_uci1223 = os.path.join(uci1223_microhap_dir, "uci1223_microhap.tsv")
-rule tidy_microhap_uci1223:
-    input:
-        uci1223_seqtab_cigar, 
-        locus_metadata, 
-        code = os.path.join(
-            "workflow", 
-            "notebooks", 
-            "tidy_microhap_uci1223.Rmd")
-    output: 
-        multiext(
-            notebooks["tidy_microhap_uci1223"], 
-            ".nb.html", 
-            ".pdf", 
-            ".md"), 
-        mh_uci1223
+        sl_read_counts, 
+        s_read_counts_parasitemia
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -970,6 +949,7 @@ rule apply_variants:
         # as the -H I argument (I verified this).
         "bcftools consensus -s {wildcards.samp} -I -f {input.ref} {input.vcf} "
         "> {output}"
+microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN", "{panel}")
 mg_microhap_fasta_dir = os.path.join(mg_microhap_dir, "fasta")
 hapseq = os.path.join(mg_microhap_fasta_dir, "{samp}_hapseq.fa")
@@ -1114,7 +1094,7 @@ rule plot_panel_target_metrics:
         "{input.targets} --out_base {params.basename}"
 rule plot_read_counts_vs_parasitemia:
     input:
-        s_read_counts_parasitemia = uci1223_s_read_counts_parasitemia, 
+        s_read_counts_parasitemia = s_read_counts_parasitemia, 
         code = os.path.join(
             "workflow", 
             "scripts", 
@@ -1131,7 +1111,7 @@ rule plot_read_counts_vs_parasitemia:
         "--out_base {params.basename}"
 rule plot_read_counts_by_rep_locus:
     input:
-        read_counts = uci1223_sl_read_counts, 
+        read_counts = sl_read_counts, 
         code = os.path.join("workflow", "scripts", "readcount_heatmap.R")
     output: 
         multiext(

@@ -25,15 +25,15 @@ theme_set(theme_bw())
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
 inp <- list(
-  reads_summary = "../../results/AmpSeq/uci1223/run_dada2/reads_summary.txt", 
-  cigar_table = "../../results/AmpSeq/uci1223/asv2cigar/seqtab_cigar.tsv", 
+  reads_summary = "../../results/AmpSeq/UCI1223/run_dada2/reads_summary.txt", 
+  cigar_table = "../../results/AmpSeq/UCI1223/asv2cigar/seqtab_cigar.tsv", 
   locus_metadata = "../../results/locus_metadata.tsv", 
   rep_metadata = "../../resources/MH_template__LB_EHS_dz07242024_to_liz.xlsx"
 )
 out <- list(
-  sl_read_counts = "../../results/AmpSeq/uci1223/sl_read_counts.csv", 
+  sl_read_counts = "../../results/AmpSeq/UCI1223/sl_read_counts.csv", 
   s_read_counts_parasitemia = 
-    "../../results/AmpSeq/uci1223/s_read_counts_parasitemia.csv"
+    "../../results/AmpSeq/UCI1223/s_read_counts_parasitemia.csv"
 )
 ```
 
