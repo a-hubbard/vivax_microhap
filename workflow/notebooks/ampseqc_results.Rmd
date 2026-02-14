@@ -24,6 +24,8 @@ library(tidyr)
 opts_chunk$set(echo = ! is_latex_output(), out.width = "100%")
 # Set default ggplot2 theme
 theme_set(theme_bw())
+# Import shared functions
+source("../shared_functions.R")
 
 # Hardcode parameters. These are not passed as shell arguments because 
 # hardcoded values facilitate development and this document is not 
@@ -89,29 +91,6 @@ not correspond to any of the provided features.
 The total number of reads that passed AmpSeQC's filters is:
 
 ```{r fig.width = 20, fig.height = 13}
-read_count_heatmap <- function(reads, 
-                               fill_scale = scale_fill_fermenter(
-                                 palette = "YlGnBu", 
-                                 name = "Reads", 
-                                 breaks = c(10, 100, 1000, 2000)
-                               ), 
-                               theme_tweaks = NULL, 
-                               title_lbl = NULL) {
-  ggplot(
-      data = reads, 
-      mapping = aes(x = locus, y = sample_id, fill = n_read)
-    ) +
-    geom_tile() +
-    fill_scale +
-    labs(x = "Locus", y = "Replicate", title = title_lbl) +
-    theme(
-      axis.text.x = element_text(angle = 90, hjust = 1), 
-      legend.position = "bottom", 
-      legend.key.width = unit(0.35, "in")
-    ) +
-    theme_tweaks
-}
-
 # Print total read count -----------------------------------------------
 sum(may2022_read_counts_byloc$n_read)
 
@@ -389,14 +368,7 @@ for (s in unique(serialdil2_read_counts_byloc$specimen_id)) {
     mutate(
       sample_id = factor(sample_id, levels = unique(sample_id), ordered = TRUE)
     ) %>%
-    read_count_heatmap(
-       fill_scale = scale_fill_fermenter(
-         palette = "YlGnBu", 
-         name = "Reads", 
-         breaks = c(1, 10, 100, 1000, 2000)
-       ), 
-      title_lbl = title_lbl
-    ) %>%
+    read_count_heatmap(title_lbl = title_lbl) %>%
     print()
 }
 ```
@@ -412,14 +384,19 @@ stark contrast to the first serial dilution run.
 serialdil2_read_counts_byloc %>%
   # Both protocols were only used at this parasitemia
   filter(parasitemia == 100) %>%
-  group_by(specimen_id, protocol) %>%
-  summarize(mean_reads = mean(n_read), .groups = "drop") %>%
-  ggplot(mapping = aes(x = specimen_id, y = mean_reads, fill = protocol)) +
-  geom_bar(position = "dodge", stat = "identity") +
+  group_by(specimen_id, sample_id, protocol) %>%
+  summarize(
+    pct_loci_good_amp = (sum(n_read >= 10)/88) * 100,  
+    .groups = "drop"
+  ) %>%
+  ggplot(
+    mapping = aes(x = specimen_id, y = pct_loci_good_amp, color = protocol)
+  ) +
+  geom_boxplot() +
   labs(
     x = "Sample ID", 
-    y = "Mean Reads Across Loci and Replicates", 
-    fill = "Protocol"
+    y = "Percentage of Loci with >= 10 Reads", 
+    color = "Protocol"
   )
 ```
 

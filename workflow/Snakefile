@@ -531,11 +531,13 @@ rule run_ampseqc:
 # Analyze AmpSeQC results to identify loci that amplified successfully
 loci2filter_dir = os.path.join("results", "loci2filter")
 loci2filter_good_amp = os.path.join(loci2filter_dir, "good_amp.csv")
+shared_functions = os.path.join("workflow", "shared_functions.R")
 rule analyze_ampseqc_results:
     input:
         expand(
             read_counts, 
             seqrun=["May2022","UCI1223","serialdil1","serialdil2"]), 
+        shared_functions, 
         code = os.path.join("workflow", "notebooks", "ampseqc_results.Rmd")
     output: 
         multiext(notebooks["ampseqc_results"], ".nb.html", ".pdf", ".md"), 
@@ -752,11 +754,11 @@ rule asv2cigar:
 uci1223_rep_metadata = os.path.join(
     "resources", 
     "MH_template__LB_EHS_dz07242024_to_liz.xlsx")
-sl_read_counts = os.path.join(ampseq_dir, "UCI1223", "sl_read_counts.csv")
-s_read_counts_parasitemia = os.path.join(
+rl_read_counts = os.path.join(ampseq_dir, "serialdil2", "rl_read_counts.csv")
+rl_pct_good_amp_parasitemia = os.path.join(
     ampseq_dir, 
-    "UCI1223", 
-    "s_read_counts_parasitemia.csv")
+    "serialdil2", 
+    "rl_pct_good_amp_parasitemia.csv")
 ampseq_runs = ["UCI1223", "serialdil2"]
 rule assess_microhap_quantity:
     input:
@@ -764,6 +766,7 @@ rule assess_microhap_quantity:
         expand(seqtab_cigar, run_id=ampseq_runs), 
         locus_metadata, 
         uci1223_rep_metadata, 
+        shared_functions, 
         code = os.path.join(
             "workflow", 
             "notebooks", 
@@ -774,8 +777,8 @@ rule assess_microhap_quantity:
             ".nb.html", 
             ".pdf", 
             ".md"), 
-        sl_read_counts, 
-        s_read_counts_parasitemia
+        rl_read_counts, 
+        rl_pct_good_amp_parasitemia
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -1012,7 +1015,6 @@ rule tidy_microhap_mg:
         """
 
 # Evaluate with paneljudge
-shared_functions = os.path.join("workflow", "shared_functions.R")
 panels = ["PvGAP", "Kleinecke", "PvGTSeq"]
 pops = ["ESEA", "AF", "LAM"]
 af_dir = os.path.join("results", "af")
@@ -1094,7 +1096,7 @@ rule plot_panel_target_metrics:
         "{input.targets} --out_base {params.basename}"
 rule plot_read_counts_vs_parasitemia:
     input:
-        s_read_counts_parasitemia = s_read_counts_parasitemia, 
+        rl_pct_good_amp_parasitemia = rl_pct_good_amp_parasitemia, 
         code = os.path.join(
             "workflow", 
             "scripts", 
@@ -1107,11 +1109,12 @@ rule plot_read_counts_vs_parasitemia:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
         "Rscript {input.code} "
-        "--s_read_counts_parasitemia {input.s_read_counts_parasitemia} "
+        "--rl_pct_good_amp_parasitemia {input.rl_pct_good_amp_parasitemia} "
         "--out_base {params.basename}"
 rule plot_read_counts_by_rep_locus:
     input:
-        read_counts = sl_read_counts, 
+        shared_functions, 
+        read_counts = rl_read_counts, 
         code = os.path.join("workflow", "scripts", "readcount_heatmap.R")
     output: 
         multiext(

@@ -21,60 +21,38 @@ opts_chunk$set(echo = ! is_latex_output())
 # Set default ggplot2 theme
 theme_set(theme_bw())
 
+source("../shared_functions.R")
+
 # Hardcode parameters. These are not passed as shell arguments because 
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
 inp <- list(
-  reads_summary = "../../results/AmpSeq/UCI1223/run_dada2/reads_summary.txt", 
-  cigar_table = "../../results/AmpSeq/UCI1223/asv2cigar/seqtab_cigar.tsv", 
+  reads_summary_uci1223 = "../../results/AmpSeq/UCI1223/run_dada2/reads_summary.txt", 
+  cigar_table_uci1223 = "../../results/AmpSeq/UCI1223/asv2cigar/seqtab_cigar.tsv", 
   locus_metadata = "../../results/locus_metadata.tsv", 
-  rep_metadata = "../../resources/MH_template__LB_EHS_dz07242024_to_liz.xlsx"
+  rep_metadata_uci1223 = "../../resources/MH_template__LB_EHS_dz07242024_to_liz.xlsx", 
+  reads_summary_serialdil2 = "../../results/AmpSeq/serialdil2/run_dada2/reads_summary.txt", 
+  cigar_table_serialdil2 = "../../results/AmpSeq/serialdil2/asv2cigar/seqtab_cigar.tsv"
 )
 out <- list(
-  sl_read_counts = "../../results/AmpSeq/UCI1223/sl_read_counts.csv", 
-  s_read_counts_parasitemia = 
-    "../../results/AmpSeq/UCI1223/s_read_counts_parasitemia.csv"
+  rl_read_counts = "../../results/AmpSeq/serialdil2/rl_read_counts.csv", 
+  rl_pct_good_amp_parasitemia = 
+    "../../results/AmpSeq/serialdil2/rl_pct_good_amp.csv"
 )
 ```
 
 # Final Data Quantity
 
-## Reads
+## UCI 12/23
 
-### By Replicate
+### Reads
+
+#### By Replicate
 
 ```{r fig.width = 15, fig.height = 17, message = FALSE, out.width = "100%"}
-read_count_heatmap_byrep <- function(reads, loi) {
-  lib_reads <- reads %>%
-    filter(lib_name == loi)
-  samples_reps <- lib_reads %>%
-    distinct(sample_id, rep_id) %>%
-    arrange(sample_id)
-  lib_reads %>%
-    arrange(sample_id) %>%
-    # Make rep_id a factor with ordering corresponding to samples_reps
-    mutate(rep_id = factor(rep_id, samples_reps$rep_id, ordered = TRUE)) %>%
-    ggplot(mapping = aes(x = locus, y = rep_id, fill = n_read)) +
-    geom_tile() +
-    # Use sample IDs from samples_reps as y-axis labels to show which 
-    # replicates came from the same sample
-    scale_y_discrete(label = samples_reps$sample_id) +
-    scale_fill_fermenter(
-      palette = "YlGnBu", 
-      name = "Reads", 
-      breaks = c(10, 100, 1000, 2000)
-    ) +
-    labs(x = "Locus", y = "Replicate", title = loi) +
-    theme(
-      axis.text.x = element_text(angle = 60, hjust = 1), 
-      legend.position = "bottom", 
-      legend.key.width = unit(0.35, "in")
-    )
-}
-
 # Read in final, filtered data -----------------------------------------
-variant_read_counts <- read_tsv(
-    inp$cigar_table, 
+variant_read_counts_uci1223 <- read_tsv(
+    inp$cigar_table_uci1223, 
     col_types = cols(.default = col_integer(), sample = col_character()), 
     progress = FALSE
   ) %>%
@@ -82,15 +60,15 @@ variant_read_counts <- read_tsv(
   separate_wider_delim(locus_cigar, ",", names = c("locus_pos", "cigar")) %>%
   # Remove strand information
   mutate(locus_pos = str_remove(locus_pos, "\\(.\\)")) %>%
-  rename(rep_id = sample)
+  rename(sample_id = sample)
 
 # Check for implicit missing data --------------------------------------
-n_loci_by_rep <- variant_read_counts %>%
-  group_by(rep_id) %>%
+n_loci_by_rep_uci1223 <- variant_read_counts_uci1223 %>%
+  group_by(sample_id) %>%
   summarize(n_loci = n_distinct(locus_pos), .groups = "drop")
-reps_wo_all_loci <- n_loci_by_rep %>%
-  filter(n_loci < n_distinct(variant_read_counts$locus_pos))
-if (nrow(reps_wo_all_loci) > 0) {
+reps_wo_all_loci_uci1223 <- n_loci_by_rep_uci1223 %>%
+  filter(n_loci < n_distinct(variant_read_counts_uci1223$locus_pos))
+if (nrow(reps_wo_all_loci_uci1223) > 0) {
   stop(
     "Not all replicates have entries for all loci in AmpSeq output", 
     call. = FALSE
@@ -110,13 +88,13 @@ locus_metadata <- read_tsv(
   select(locus, chrom, start_pos, end_pos) %>%
   unite(start_end, start_pos, end_pos, sep = "-") %>%
   unite(locus_pos, chrom, start_end, sep = ":")
-variant_read_counts <- variant_read_counts %>%
+variant_read_counts_uci1223 <- variant_read_counts_uci1223 %>%
   left_join(locus_metadata, by = "locus_pos") %>%
   select(-locus_pos)
 
 # Read replicate metadata ----------------------------------------------
-rep_metadata <- read_xlsx(
-    inp$rep_metadata, 
+rep_metadata_uci1223 <- read_xlsx(
+    inp$rep_metadata_uci1223, 
     sheet = "pv242"
   ) %>%
   select(
@@ -130,38 +108,46 @@ rep_metadata <- read_xlsx(
     `Ct...23`
   ) %>%
   rename(
-    rep_id = SampleID, 
+    sample_id = SampleID, 
     lib_name = `library name`, 
-    sample_id = MH_DNA_Well, 
+    specimen_id = MH_DNA_Well, 
     ct1 = `Ct...21`, 
     ct2 = `Ct...23`
   ) %>%
   pivot_longer(c(ct1, ct2), names_to = "ct_rep", values_to = "ct") %>%
   mutate(ct = na_if(ct, "No Ct")) %>%
   mutate(ct = as.numeric(ct)) %>%
-  group_by(rep_id, lib_name, sample_id, DARC_Phenotype, Site, Method) %>%
+  group_by(sample_id, lib_name, specimen_id, DARC_Phenotype, Site, Method) %>%
   summarize(ct = mean(ct), .groups = "drop")
 # Make sure each sample ID has one and only one Ct value
-sample_ct_values <- rep_metadata %>%
-  distinct(sample_id, ct) %>%
-  group_by(sample_id) %>%
+sample_ct_values_uci1223 <- rep_metadata_uci1223 %>%
+  distinct(specimen_id, ct) %>%
+  group_by(specimen_id) %>%
   mutate(n_ct = n()) %>%
   ungroup()
-if (max(sample_ct_values$n_ct) > 1) {
+if (max(sample_ct_values_uci1223$n_ct) > 1) {
   stop("Some sample IDs have more than one Ct value", call. = FALSE)
 }
 
 # Summarize read counts and join metadata ------------------------------
-rl_read_counts <- variant_read_counts %>%
+rl_read_counts_uci1223 <- variant_read_counts_uci1223 %>%
   # Calculate total reads for each replicate/locus
-  group_by(rep_id, locus) %>%
+  group_by(sample_id, locus) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
-  left_join(rep_metadata, by = "rep_id")
+  left_join(rep_metadata_uci1223, by = "sample_id")
 
 # Plot reads by replicate and locus ------------------------------------
-for (l in unique(rl_read_counts$lib_name)) {
-  rl_read_counts %>%
-    read_count_heatmap_byrep(l) %>%
+for (l in unique(rl_read_counts_uci1223$lib_name)) {
+  lib_reads <- rl_read_counts_uci1223 %>%
+    filter(lib_name == l)
+  samples_reps <- lib_reads %>%
+    distinct(specimen_id, sample_id) %>%
+    arrange(specimen_id)
+  lib_reads %>%
+    arrange(specimen_id) %>%
+    # Make sample_id a factor with ordering corresponding to samples_reps
+    mutate(sample_id = factor(sample_id, samples_reps$sample_id, ordered = TRUE)) %>%
+    read_count_heatmap(y_lbl = "Replicate", title_lbl = l) %>%
     print()
 }
 ```
@@ -175,48 +161,101 @@ Sequencing yield was reasonably consistent across replicates, though there were
 a few exceptions to this. Sequencing yield was a lot better with samples from 
 Duffy positive individuals, which is presumably related to parasitemia.
 
-### Sample Means
+#### Sample Means
 
 ```{r fig.width = 15, fig.height = 11, out.width = "100%"}
-read_count_heatmap_bysample <- function(reads) {
-  reads %>%
-    ggplot(mapping = aes(x = locus, y = sample_id, fill = n_read)) +
-    geom_tile() +
-    scale_fill_fermenter(
-      palette = "YlGnBu", 
-      name = "Reads", 
-      breaks = c(10, 100, 1000, 2000)
-    ) +
-    labs(x = "Locus", y = "Sample") +
-    theme(
-      axis.text.x = element_text(angle = 60, hjust = 1), 
-      legend.position = "bottom", 
-      legend.key.width = unit(0.35, "in")
-    )
-}
-
 # Compute mean read counts for each sample/locus -----------------------
-sl_mean_read_counts <- rl_read_counts %>%
+sl_mean_read_counts_uci1223 <- rl_read_counts_uci1223 %>%
   filter(DARC_Phenotype != "negative") %>%
   select(-DARC_Phenotype) %>%
-  group_by(sample_id, locus, lib_name) %>%
+  group_by(specimen_id, locus, lib_name) %>%
   summarize(n_read = mean(n_read), .groups = "drop")
 
 # Plot reads by sample and locus ---------------------------------------
-sl_mean_read_counts %>%
-  read_count_heatmap_bysample() %>%
+sl_mean_read_counts_uci1223 %>%
+  rename(sample_id = specimen_id) %>%
+  read_count_heatmap() %>%
   print()
 ```
 
 These heatmaps show the mean number of reads for each sample-locus combination.
 Samples from Duffy negative individuals have been removed.
 
+## Serial Dilution Run 2
+
+### Reads
+
+#### By Replicate
+
+```{r fig.width = 15, fig.height = 17, message = FALSE, out.width = "100%"}
+# Read in final, filtered data -----------------------------------------
+variant_read_counts_serialdil2 <- read_tsv(
+    inp$cigar_table_serialdil2, 
+    col_types = cols(.default = col_integer(), sample = col_character()), 
+    progress = FALSE
+  ) %>%
+  pivot_longer(-sample, names_to = "locus_cigar", values_to = "n_read") %>%
+  separate_wider_delim(locus_cigar, ",", names = c("locus_pos", "cigar")) %>%
+  # Remove strand information
+  mutate(locus_pos = str_remove(locus_pos, "\\(.\\)")) %>%
+  rename(sample_id = sample) %>%
+  separate_wider_delim(
+    sample_id, 
+    "-", 
+    names = c("well", "specimen_id", "parasitemia", "protocol"), 
+    cols_remove = FALSE
+  ) %>%
+  mutate(parasitemia = as.integer(parasitemia))
+
+# Check for implicit missing data --------------------------------------
+n_loci_by_rep_serialdil2 <- variant_read_counts_serialdil2 %>%
+  group_by(sample_id) %>%
+  summarize(n_loci = n_distinct(locus_pos), .groups = "drop")
+reps_wo_all_loci_serialdil2 <- n_loci_by_rep_serialdil2 %>%
+  filter(n_loci < n_distinct(variant_read_counts_serialdil2$locus_pos))
+if (nrow(reps_wo_all_loci_serialdil2) > 0) {
+  stop(
+    "Not all replicates have entries for all loci in AmpSeq output", 
+    call. = FALSE
+  )
+}
+
+# Join locus names -----------------------------------------------------
+variant_read_counts_serialdil2 <- variant_read_counts_serialdil2 %>%
+  left_join(locus_metadata, by = "locus_pos") %>%
+  select(-locus_pos)
+
+# Summarize read counts ------------------------------------------------
+rl_read_counts_serialdil2 <- variant_read_counts_serialdil2 %>%
+  # Calculate total reads for each replicate/locus
+  group_by(sample_id, well, specimen_id, parasitemia, protocol, locus) %>%
+  summarize(n_read = sum(n_read), .groups = "drop")
+
+# Plot reads by replicate and locus ------------------------------------
+for (s in unique(rl_read_counts_serialdil2$specimen_id)) {
+  title_lbl <- str_c("Sample", str_sub(s, start = 3L), sep = " ")
+  rl_read_counts_serialdil2 %>%
+    filter(specimen_id == s) %>%
+    arrange(protocol, parasitemia) %>%
+    mutate(
+      sample_id = factor(sample_id, levels = unique(sample_id), ordered = TRUE)
+    ) %>%
+    read_count_heatmap(y_lbl = "Replicate", title_lbl = title_lbl) %>%
+    print()
+}
+```
+
+These heatmaps show the number of reads in the final dataset for each
+locus-replicate combination. The plots have been grouped according to specimen.
+
 # Filtering at Each Step
+
+## UCI 12/23
 
 ```{r}
 # Read in read filtering information -----------------------------------
-reads_summary <- read_table(
-    inp$reads_summary, 
+reads_summary_uci1223 <- read_table(
+    inp$reads_summary_uci1223, 
     col_names = c(
       "sample", 
       "input", 
@@ -230,16 +269,16 @@ reads_summary <- read_table(
     skip = 1, 
     progress = FALSE
   ) %>%
-  rename(rep_id = sample)
+  rename(sample_id = sample)
 
 # Join final read counts -----------------------------------------------
-reads_by_step <- rl_read_counts %>%
-  group_by(rep_id) %>%
+reads_by_step_uci1223 <- rl_read_counts_uci1223 %>%
+  group_by(sample_id) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
-  right_join(reads_summary, by = "rep_id") %>%
+  right_join(reads_summary_uci1223, by = "sample_id") %>%
   rename(final = n_read) %>%
   relocate(final, .after = last_col()) %>%
-  pivot_longer(-rep_id, names_to = "workflow_step", values_to = "n_read") %>%
+  pivot_longer(-sample_id, names_to = "workflow_step", values_to = "n_read") %>%
   group_by(workflow_step) %>%
   summarize(n_read = sum(n_read), .groups = "drop") %>%
   mutate(
@@ -257,7 +296,61 @@ reads_by_step <- rl_read_counts %>%
     )
   ) %>%
   arrange(workflow_step)
-reads_by_step
+reads_by_step_uci1223
+```
+
+This table shows the total number of reads after each step in the DADA2 part of
+the pipeline plus the final filtering done by `ASV_to_CIGAR.py`. At no point is 
+there an order(s) of magnitude reduction in the data volume, which would 
+indicate cause for concern.
+
+## Serial Dilution Run 2
+
+```{r}
+# Read in read filtering information -----------------------------------
+reads_summary_serialdil2 <- read_table(
+    inp$reads_summary_serialdil2, 
+    col_names = c(
+      "sample", 
+      "input", 
+      "filtered", 
+      "denoisedF", 
+      "denoisedR", 
+      "merged", 
+      "nonchim"
+    ), 
+    col_types = cols(.default = "i", sample = "c"), 
+    skip = 1, 
+    progress = FALSE
+  ) %>%
+  rename(sample_id = sample)
+
+# Join final read counts -----------------------------------------------
+reads_by_step_serialdil2 <- rl_read_counts_serialdil2 %>%
+  group_by(sample_id) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  right_join(reads_summary_serialdil2, by = "sample_id") %>%
+  rename(final = n_read) %>%
+  relocate(final, .after = last_col()) %>%
+  pivot_longer(-sample_id, names_to = "workflow_step", values_to = "n_read") %>%
+  group_by(workflow_step) %>%
+  summarize(n_read = sum(n_read), .groups = "drop") %>%
+  mutate(
+    workflow_step = factor(
+      workflow_step, 
+      c(
+        "input", 
+        "filtered", 
+        "denoisedF", 
+        "denoisedR", 
+        "merged", 
+        "nonchim", 
+        "final"
+      )
+    )
+  ) %>%
+  arrange(workflow_step)
+reads_by_step_serialdil2
 ```
 
 This table shows the total number of reads after each step in the DADA2 part of
@@ -267,53 +360,69 @@ indicate cause for concern.
 
 # Relationship with Parasitemia
 
-This table shows mean total sample read counts and parasitemia. The two Ct 
-replicates have been averaged, and samples from Duffy negative individuals have
-been removed.
+## UCI 12/23
 
 ```{r}
 # Compute and print sample read count and parasitemia ------------------
-sample_mean_total_read_counts <- rl_read_counts %>%
+rl_pct_good_amp_uci1223 <- rl_read_counts_uci1223 %>%
   filter(DARC_Phenotype != "negative") %>%
   select(-DARC_Phenotype) %>%
-  group_by(rep_id, sample_id, lib_name, ct) %>%
-  summarize(n_read = sum(n_read), .groups = "drop") %>%
-  group_by(sample_id, lib_name, ct) %>%
-  summarize(n_read = mean(n_read), .groups = "drop") %>%
+  group_by(sample_id, specimen_id, lib_name, ct) %>%
+  summarize(
+    pct_loci_good_amp = (sum(n_read >= 10)/88) * 100,  
+    .groups = "drop"
+  ) %>%
   mutate(parasitemia = (10^((ct - 41.663)/-3.289)))
-sample_mean_total_read_counts %>%
-  arrange(parasitemia)
+
+# Plot parasitemia versus sample read count ----------------------------
+rl_pct_good_amp_uci1223 %>%
+  group_by(specimen_id) %>%
+  filter(pct_loci_good_amp == max(pct_loci_good_amp)) %>%
+  ungroup() %>%
+  pct_good_amp_vs_parasitemia()
 ```
 
-Even at parasitemias of 10-50 parasites/$\mu$L, more than 1000 reads were
-obtained.
+This scatterplot shows the relationship between parasitemia and the percentage
+of loci that have amplified successfully. The x-axis is $log_{10}$ scaled. The
+line and shaded area show the linear relationship y = log(x) and the 95%
+confidence interval for this model.
+
+The two Ct replicates have been averaged, and samples from Duffy negative 
+individuals have been removed. For each specimen, the replicate with the best
+amplification was selected for inclusion in the plot.
+
+## Serial Dilution Run 2
 
 ```{r}
-# Plot parasitemia versus sample read count ----------------------------
-sample_mean_total_read_counts %>%
-  ggplot(mapping = aes(x = parasitemia, y = n_read)) +
-  geom_point() +
-  geom_smooth(method = "lm", formula = "y ~ x") +
-  scale_x_continuous(trans = "log10") +
-  scale_y_continuous(trans = "log10") +
-  labs(
-    x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
-    y = "Mean Reads per Replicate"
+# Compute and print sample read count and parasitemia ------------------
+rl_pct_good_amp_serialdil2 <- rl_read_counts_serialdil2 %>%
+  # Keep protocol "v2" over "v1" when both present
+  filter(parasitemia != 100 | protocol == "v2") %>%
+  select(-protocol) %>%
+  group_by(sample_id, specimen_id, parasitemia) %>%
+  summarize(
+    pct_loci_good_amp = (sum(n_read >= 10)/88) * 100,  
+    .groups = "drop"
   )
+
+# Plot parasitemia versus sample read count ----------------------------
+rl_pct_good_amp_serialdil2 %>%
+  pct_good_amp_vs_parasitemia()
 ```
 
-This scatterplot shows the relationship between parasitemia and mean total read 
-count obtained for each sample. Both axes are $log_{10}$ scaled.
+This scatterplot shows the relationship between parasitemia and the percentage
+of loci that have amplified successfully. The x-axis is $log_{10}$ scaled. The
+line and shaded area show the linear relationship y = log(x) and the 95%
+confidence interval for this model.
 
-The fitted linear relationship suggests that at a parasitemia of 100
-parasites/$\mu$L one can expect to obtain about 10,000 reads. This is 
-encouraging, as this would yield more than 100 reads per locus if they are 
-evenly distributed across the panel.
+For the 100 parasitemia preparations, those done with protocol v2 were selected
+for visualization. Otherwise, all replicates for all samples are included in the
+plot.
 
 ```{r}
 # Save data for publication figures ------------------------------------
-sl_mean_read_counts %>%
-  write_csv(out$sl_read_counts)
-sample_mean_total_read_counts %>%
-  write_csv(out$s_read_counts_parasitemia)
+rl_read_counts_serialdil2 %>%
+  write_csv(out$rl_read_counts)
+rl_pct_good_amp_serialdil2 %>%
+  write_csv(out$rl_pct_good_amp_parasitemia)
 ```
