@@ -37,7 +37,7 @@ inp <- list(
 out <- list(
   rl_read_counts = "../../results/AmpSeq/serialdil2/rl_read_counts.csv", 
   rl_pct_good_amp_parasitemia = 
-    "../../results/AmpSeq/serialdil2/rl_pct_good_amp.csv"
+    "../../results/AmpSeq/serialdil2/rl_pct_good_amp_parasitemia.csv"
 )
 ```
 

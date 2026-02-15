@@ -20,29 +20,31 @@ opts <- list(
         "parasitemia values"
       )
   ), 
+  make_option("--shared_functions", help = "Path to shared functions file"), 
   make_option("--out_base", help = "Basename for output figure")
 )
 arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
 if (interactive()) {
   arg <- list(
-    s_read_counts_parasitemia = 
-      "../../results/AmpSeq/serialdil2/rl_pct_good_amp_parasitemia.csv"
+    rl_pct_good_amp_parasitemia = 
+      "../../results/AmpSeq/serialdil2/rl_pct_good_amp_parasitemia.csv", 
+    shared_functions = "../shared_functions.R"
   )
 }
 
 # Set default ggplot2 theme
 theme_set(theme_bw())
 # Access shared functions
-source("../shared_functions.R")
+source(arg$shared_functions)
 
 # Read in read counts and parasitemia values ---------------------------
 rl_pct_good_amp_parasitemia <- read_csv(
-    arg$s_read_counts_parasitemia, 
+    arg$rl_pct_good_amp_parasitemia, 
     col_types = cols(
       .default = col_character(), 
-      n_read = col_double(), 
-      parasitemia = col_double()
+      parasitemia = col_integer(), 
+      pct_loci_good_amp = col_double()
     ), 
     progress = FALSE
   )

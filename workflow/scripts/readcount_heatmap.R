@@ -10,6 +10,7 @@ library(tidyverse)
 # Parse arguments ------------------------------------------------------
 opts <- list(
   make_option("--read_counts", help = "CSV file containing read counts"), 
+  make_option("--shared_functions", help = "Path to shared functions file"), 
   make_option("--out_base", help = "Basename for output figure")
 )
 arg <- parse_args(OptionParser(option_list = opts))
@@ -17,7 +18,8 @@ if (interactive()) {
   arg$read_counts <- "../../results/AmpSeq/serialdil2/rl_read_counts.csv"
 }
 
-source("../shared_functions.R")
+# Access shared functions
+source(arg$shared_functions)
 
 # Read in data ---------------------------------------------------------
 read_counts <- read_csv(

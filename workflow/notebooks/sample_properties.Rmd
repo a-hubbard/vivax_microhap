@@ -26,12 +26,12 @@ theme_set(theme_bw())
 inp <- list(
   sample_metadata = "../../resources/MalariaGEN/orig/Pv4_samples.txt", 
   sample_coi = "../../resources/MalariaGEN/orig/Pv4_fws.txt", 
-  sample_missingness = "../../results/MalariaGEN/preprocessed/missbysamp.tsv"
+  sample_missingness = "../../results/MalariaGEN/PvGAP/missbysamp.tsv"
 )
 out <- list(
   filtered_samples = "../../results/filtered_samples.txt", 
   filtered_metadata = 
-    "../../results/MalariaGEN/preprocessed/sample_metadata.csv"
+    "../../results/MalariaGEN/PvGAP/sample_metadata.csv"
 )
 ```
 
