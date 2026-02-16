@@ -67,6 +67,7 @@ localrules:
     plot_panel_target_metrics, 
     plot_read_counts_vs_parasitemia, 
     plot_read_counts_by_rep_locus, 
+    plot_card_vs_effcard, 
     compile_figs_tables, 
     compile_may2022_supp_text, 
     push_results_notebooks, 
@@ -97,7 +98,10 @@ figdir = os.path.join("results", "figs")
 figs = {
     "panel_target_metrics": "fig1", 
     "readcount_heatmap": "suppfig1", 
-    "readcount_density_scatter": "fig2"}
+    "readcount_density_scatter": "fig2", 
+    "paneljudge_cardinality": "fig3", 
+    "paneljudge_ci_width": "suppfig2", 
+    "paneljudge_rmse": "fig4"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 # Documents
 figs_tables_doc = os.path.join("results", "all_figs_tables.pdf")
@@ -1004,6 +1008,9 @@ panels = ["PvGAP", "Kleinecke", "PvGTSeq"]
 pops = ["ESEA", "AF", "LAM"]
 af_dir = os.path.join("results", "af")
 af_table = os.path.join(af_dir, "af_{panel}_{pop_oi}.tsv")
+paneljudge_marker_metrics = os.path.join(
+        "results", 
+        "paneljudge_marker_metrics.tsv")
 rule compute_marker_metrics:
     input:
         expand(mg_microhap_tidy, panel=panels), 
@@ -1018,7 +1025,8 @@ rule compute_marker_metrics:
             ".nb.html", 
             ".pdf", 
             ".md"), 
-        expand(af_table, panel=panels, pop_oi=pops)
+        expand(af_table, panel=panels, pop_oi=pops), 
+        paneljudge_marker_metrics
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -1113,6 +1121,23 @@ rule plot_read_counts_by_rep_locus:
     shell: 
         "Rscript {input.code} "
         "--read_counts {input.read_counts} "
+        "--shared_functions {input.shared_functions} "
+        "--out_base {params.basename}"
+rule plot_card_vs_effcard:
+    input:
+        shared_functions = shared_functions, 
+        marker_metrics = paneljudge_marker_metrics, 
+        code = os.path.join("workflow", "scripts", "paneljudge_cardinality.R")
+    output: 
+        multiext(
+            os.path.join(figdir,figs["paneljudge_cardinality"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} "
+        "--marker_metrics {input.marker_metrics} "
         "--shared_functions {input.shared_functions} "
         "--out_base {params.basename}"
 

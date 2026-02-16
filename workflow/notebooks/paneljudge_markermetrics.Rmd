@@ -36,7 +36,10 @@ inp <- list(
   mh_pvgtseq = "../../results/microhap/MalariaGEN/PvGTSeq/mg_microhap.csv", 
   shared_functions = "../shared_functions.R"
 )
-out <- list(af_dir = "../../results/af")
+out <- list(
+  marker_metrics = "../../results/paneljudge_marker_metrics.tsv", 
+  af_dir = "../../results/af"
+)
 
 source(inp$shared_functions)
 ```
@@ -215,16 +218,8 @@ marker_metrics <- marker_metrics %>%
   left_join(pop_lbls, by = "Population")
 
 # Visualize cardinality versus effective cardinality -------------------
-scale_max <- max(c(marker_metrics$cardinality, marker_metrics$eff_cardinality))
-scale_lim <- c(0, scale_max)
 marker_metrics %>%
-  ggplot(mapping = aes(x = cardinality, y = eff_cardinality)) +
-  geom_point(shape = 95, size = 3) +
-  geom_abline(slope = 1, intercept = 0) +
-  facet_grid(rows = vars(panel), cols = vars(pop_lbl)) +
-  scale_x_continuous(limits = scale_lim) +
-  scale_y_continuous(limits = scale_lim) +
-  labs(x = "Cardinality", y = "Effective Cardinality")
+  card_vs_effcard()
 ```
 
 This plot shows the cardinality, meaning the number of unique alleles at each
@@ -232,6 +227,11 @@ locus, versus the effective cardinality, which is a combined measure of the
 cardinality and the allelic diversity. Effective cardinality cannot exceed
 cardinality, so the y=x line indicates the maximum effective cardinality for
 each locus.
+
+```{r}
+marker_metrics %>%
+  write_tsv(out$marker_metrics)
+```
 
 This table shows the number of loci that have no variation in the entire
 dataset:

@@ -23,6 +23,20 @@ read_count_heatmap <- function(reads,
     theme_tweaks
 }
 
+# Create a scatterplot of percent good amplification versus parasitemia
+pct_good_amp_vs_parasitemia <- function(data_tib) {
+  data_tib %>%
+    ggplot(mapping = aes(x = parasitemia, y = pct_loci_good_amp)) +
+    geom_hline(yintercept = 75, color = "red", linewidth = 0.5) +
+    geom_point() +
+    geom_smooth(method = "lm", formula = "y ~ log10(x)") +
+    scale_x_continuous(trans = "log10") +
+    labs(
+      x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
+      y = expression("Percentage of Loci with" >= "10 Reads")
+    )
+}
+
 # Convert allele frequency from Dcifer format to wide format
 af_dcifer2wide <- function(af_long) {
   af_wide <- af_long %>%
@@ -36,16 +50,16 @@ af_dcifer2wide <- function(af_long) {
   af_wide
 }
 
-# Create a scatterplot of percent good amplification versus parasitemia
-pct_good_amp_vs_parasitemia <- function(data_tib) {
-  data_tib %>%
-    ggplot(mapping = aes(x = parasitemia, y = pct_loci_good_amp)) +
-    geom_hline(yintercept = 75, color = "red", linewidth = 0.5) +
-    geom_point() +
-    geom_smooth(method = "lm", formula = "y ~ log10(x)") +
-    scale_x_continuous(trans = "log10") +
-    labs(
-      x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
-      y = expression("Percentage of Loci with" >= "10 Reads")
-    )
+# Visualize cardinality versus effective cardinality
+card_vs_effcard <- function(marker_metrics) {
+  scale_max <- max(c(marker_metrics$cardinality, marker_metrics$eff_cardinality))
+  scale_lim <- c(0, scale_max)
+  marker_metrics %>%
+    ggplot(mapping = aes(x = cardinality, y = eff_cardinality)) +
+    geom_point(shape = 95, size = 3) +
+    geom_abline(slope = 1, intercept = 0) +
+    facet_grid(rows = vars(panel), cols = vars(pop_lbl)) +
+    scale_x_continuous(limits = scale_lim) +
+    scale_y_continuous(limits = scale_lim) +
+    labs(x = "Cardinality", y = "Effective Cardinality")
 }
