@@ -29,7 +29,8 @@ if (interactive()) {
   arg <- list(
     rl_pct_good_amp_parasitemia = 
       "../../results/AmpSeq/serialdil2/rl_pct_good_amp_parasitemia.csv", 
-    shared_functions = "../shared_functions.R"
+    shared_functions = "../shared_functions.R", 
+    out_base = "../../results/figs/fig2"
   )
 }
 

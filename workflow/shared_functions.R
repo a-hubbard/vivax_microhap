@@ -46,6 +46,6 @@ pct_good_amp_vs_parasitemia <- function(data_tib) {
     scale_x_continuous(trans = "log10") +
     labs(
       x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
-      y = "Percentage of Loci with >= 10 Reads"
+      y = expression("Percentage of Loci with" >= "10 Reads")
     )
 }
