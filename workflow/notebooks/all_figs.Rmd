@@ -33,13 +33,13 @@ include_graphics("../../results/figs/suppfig1.pdf")
 
 # Figure 2
 
-```{r}
+```{r out.width = "80%"}
 include_graphics("../../results/figs/fig2.pdf")
 ```
 
 # Figure 3
 
-```{r}
+```{r out.width = "80%"}
 include_graphics("../../results/figs/fig3.pdf")
 ```
 
