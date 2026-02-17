@@ -29,8 +29,14 @@ theme_set(theme_bw())
 # hardcoded values facilitate development and this document is not 
 # meant to be usable with other projects.
 inp <- list(
-  rel_sim_res_dir <- "../../results/rel_sim"
+  rel_sim_res_dir = "../../results/rel_sim", 
+  shared_functions = "../shared_functions.R"
 )
+out <- list(
+  rel_sim_all = "../../results/rel_sim_all.tsv"
+)
+
+source(inp$shared_functions)
 ```
 
 # Power for Relatedness Estimation
@@ -68,14 +74,7 @@ rel_sim_res <- rel_sim_res %>%
 
 # Compute and plot 95% CI widths of rhat by data-generating r ----------
 rel_sim_res %>%
-  mutate(ci_width = ci_97_5 - ci_2_5) %>%
-  filter(datagen_r %in% c(0.01, 0.15, 0.25, 0.5, 0.99)) %>%
-  mutate(datagen_r = as.character(datagen_r)) %>%
-  ggplot(mapping = aes(y = ci_width, x = datagen_r, color = panel)) +
-  geom_boxplot() +
-  facet_wrap(vars(pop_lbl)) +
-  labs(x = "Data-generating r", y = "95% confidence interval width of rhat") +
-  theme(legend.position = "bottom")
+  rhat_ci_width_boxplot()
 ```
 
 These boxplots show the distribution of CI widths for the relatedness estimate
@@ -86,15 +85,13 @@ in different colors.
 ```{r out.width = "100%"}
 # Compute and plot RMSEs for each data-generating r --------------------
 rel_sim_res %>%
-  group_by(panel, pop_lbl, datagen_r) %>%
-  summarize(rmse = sqrt(mean((rhat - datagen_r)^2)), .groups = "drop") %>%
-  ggplot(mapping = aes(x = datagen_r, y = rmse, color = panel)) +
-  geom_line() +
-  geom_point() +
-  facet_wrap(vars(pop_lbl)) +
-  labs(x = "Data-generating r", y = "RMSE of rhat") +
-  theme(legend.position = "bottom")
+  plot_rhat_rmse()
 ```
 
 These plots show the RMSE of rhat for each data-generating r value, facetted by
 region. Different panels are shown in different colors.
+
+```{r}
+rel_sim_res %>%
+  write_tsv(out$rel_sim_all)
+```

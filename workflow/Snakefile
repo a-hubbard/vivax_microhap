@@ -68,6 +68,8 @@ localrules:
     plot_read_counts_vs_parasitemia, 
     plot_read_counts_by_rep_locus, 
     plot_card_vs_effcard, 
+    plot_rhat_ci_width, 
+    plot_rhat_rmse, 
     compile_figs_tables, 
     compile_may2022_supp_text, 
     push_results_notebooks, 
@@ -104,7 +106,7 @@ figs = {
     "paneljudge_rmse": "fig4"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 # Documents
-figs_tables_doc = os.path.join("results", "all_figs_tables.pdf")
+figs_tables_doc = os.path.join("results", "all_figs.pdf")
 figs_tables_doc_flag = os.path.join(".flags", "push_figs_tables_doc")
 supp_texts_dir = os.path.join("results", "supp_texts")
 supp_texts = {"may2022": "supptext1"}
@@ -1054,15 +1056,18 @@ rule sim_rel_w_paneljudge:
         "--threads {threads} "
         "--seed {seed} "
         "--out {output}"
+rel_sim_res_all = os.path.join("results", "rel_sim_res_all.tsv")
 rule analyze_rel_power:        
     input:
         expand(rel_sim_res, panel=panels, pop_oi=pops), 
+        shared_functions, 
         code = os.path.join(
             "workflow", 
             "notebooks", 
             "paneljudge_relpower.Rmd")
     output: 
-        multiext(notebooks["paneljudge_relpower"], ".nb.html", ".pdf", ".md")
+        multiext(notebooks["paneljudge_relpower"], ".nb.html", ".pdf", ".md"), 
+        rel_sim_res_all
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
@@ -1140,6 +1145,40 @@ rule plot_card_vs_effcard:
         "--marker_metrics {input.marker_metrics} "
         "--shared_functions {input.shared_functions} "
         "--out_base {params.basename}"
+rule plot_rhat_ci_width:
+    input:
+        shared_functions = shared_functions, 
+        rel_sim_res = rel_sim_res_all, 
+        code = os.path.join("workflow", "scripts", "paneljudge_ci_width.R")
+    output: 
+        multiext(
+            os.path.join(figdir,figs["paneljudge_ci_width"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} "
+        "--rel_sim_res {input.rel_sim_res} "
+        "--shared_functions {input.shared_functions} "
+        "--out_base {params.basename}"
+rule plot_rhat_rmse:
+    input:
+        shared_functions = shared_functions, 
+        rel_sim_res = rel_sim_res_all, 
+        code = os.path.join("workflow", "scripts", "paneljudge_rmse.R")
+    output: 
+        multiext(
+            os.path.join(figdir,figs["paneljudge_rmse"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} "
+        "--rel_sim_res {input.rel_sim_res} "
+        "--shared_functions {input.shared_functions} "
+        "--out_base {params.basename}"
 
 # Supplemental texts
 may2022_total_readcount = os.path.join(
@@ -1161,7 +1200,7 @@ rule compile_may2022_supp_text:
 rule compile_figs_tables:
     input:
         expand(os.path.join(figdir,"{fig}.pdf"), fig=list(figs.values())), 
-        code = os.path.join("workflow", "notebooks", "all_figs_tables.Rmd")
+        code = os.path.join("workflow", "notebooks", "all_figs.Rmd")
     output: figs_tables_doc
     shell:
         """

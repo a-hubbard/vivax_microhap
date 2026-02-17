@@ -63,3 +63,37 @@ card_vs_effcard <- function(marker_metrics) {
     scale_y_continuous(limits = scale_lim) +
     labs(x = "Cardinality", y = "Effective Cardinality")
 }
+
+# Compute and plot 95% CI widths of rhat by data-generating r
+rhat_ci_width_boxplot <- function(rel_sim_res) {
+  rel_sim_res %>%
+    mutate(ci_width = ci_97_5 - ci_2_5) %>%
+    filter(datagen_r %in% c(0.01, 0.15, 0.25, 0.5, 0.99)) %>%
+    mutate(datagen_r = as.character(datagen_r)) %>%
+    ggplot(mapping = aes(y = ci_width, x = datagen_r, color = panel)) +
+    geom_boxplot() +
+    facet_wrap(vars(pop_lbl)) +
+    labs(
+      x = expression("Data-generating" ~ italic(r)), 
+      y = expression("95% CI Width of" ~ italic(hat(r))), 
+      color = "Panel"
+    ) +
+    theme(legend.position = "bottom")
+}
+
+# Compute and plot RMSEs for each data-generating r
+plot_rhat_rmse <- function(rel_sim_res) {
+  rel_sim_res %>%
+    group_by(panel, pop_lbl, datagen_r) %>%
+    summarize(rmse = sqrt(mean((rhat - datagen_r)^2)), .groups = "drop") %>%
+    ggplot(mapping = aes(x = datagen_r, y = rmse, color = panel)) +
+    geom_line() +
+    geom_point() +
+    facet_wrap(vars(pop_lbl)) +
+    labs(
+      x = expression("Data-generating" ~ italic(r)), 
+      y = expression("RMSE of" ~ italic(hat(r))), 
+      color = "Panel"
+    ) +
+    theme(legend.position = "bottom")
+}
