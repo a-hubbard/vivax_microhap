@@ -955,7 +955,7 @@ rule filter2hapseq:
         bed = panel_bed
     output: hapseq
     resources:
-        time = 10, 
+        time = 20, 
         mem_mb = 2000
     threads: 1
     benchmark: os.path.join("benchmarks", "filter2hapseq_{panel}_{samp}.tsv")

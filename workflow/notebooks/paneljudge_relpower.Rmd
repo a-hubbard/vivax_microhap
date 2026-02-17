@@ -33,7 +33,7 @@ inp <- list(
   shared_functions = "../shared_functions.R"
 )
 out <- list(
-  rel_sim_all = "../../results/rel_sim_all.tsv"
+  rel_sim_res_all = "../../results/rel_sim_res_all.tsv"
 )
 
 source(inp$shared_functions)
@@ -44,7 +44,7 @@ source(inp$shared_functions)
 ```{r out.width = "100%"}
 # Read in simulated relatedness estimates ------------------------------
 rel_sim_res <- tibble(
-    sim_res_path = list.files(rel_sim_res_dir, full.names = TRUE)
+    sim_res_path = list.files(inp$rel_sim_res_dir, full.names = TRUE)
   ) %>%
   mutate(
     sim_res = map(
@@ -93,5 +93,5 @@ region. Different panels are shown in different colors.
 
 ```{r}
 rel_sim_res %>%
-  write_tsv(out$rel_sim_all)
+  write_tsv(out$rel_sim_res_all)
 ```
