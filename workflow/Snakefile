@@ -67,6 +67,7 @@ localrules:
     plot_panel_target_metrics, 
     plot_read_counts_vs_parasitemia, 
     plot_read_counts_by_rep_locus, 
+    plot_wsaf_consistency, 
     plot_card_vs_effcard, 
     plot_rhat_ci_width, 
     plot_rhat_rmse, 
@@ -102,8 +103,9 @@ figs = {
     "panel_target_metrics": "fig1", 
     "readcount_heatmap": "suppfig1", 
     "readcount_density_scatter": "fig2", 
+    "wsaf_consistency": "suppfig2", 
     "paneljudge_cardinality": "fig3", 
-    "paneljudge_ci_width": "suppfig2", 
+    "paneljudge_ci_width": "suppfig4", 
     "paneljudge_rmse": "fig4"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 # Documents
@@ -1146,6 +1148,21 @@ rule plot_read_counts_by_rep_locus:
         "Rscript {input.code} "
         "--read_counts {input.read_counts} "
         "--shared_functions {input.shared_functions} "
+        "--out_base {params.basename}"
+rule plot_wsaf_consistency:
+    input:
+        allele_table = serialdil2_microhap, 
+        code = os.path.join("workflow", "scripts", "wsaf_consistency.R")
+    output: 
+        multiext(
+            os.path.join(figdir,figs["wsaf_consistency"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} "
+        "--allele_table {input.allele_table} "
         "--out_base {params.basename}"
 rule plot_card_vs_effcard:
     input:

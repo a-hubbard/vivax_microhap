@@ -76,11 +76,13 @@ allele_table <- allele_table %>%
   separate_wider_delim(
     rep_id, 
     "-", 
-    names = c(NA, "specimen_id", "parasitemia", "protocol")
+    names = c(NA, "specimen_id", "parasitemia", "protocol"), 
+    cols_remove = FALSE
   ) %>%
   mutate(parasitemia = as.integer(parasitemia)) %>%
   # Keep protocol "v2" over "v1" when both present
-  filter(parasitemia != 100 | protocol == "v2")
+  filter(parasitemia != 100 | protocol == "v2") %>%
+  select(-protocol)
 
 # Save filtered data
 allele_table %>%
