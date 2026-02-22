@@ -86,6 +86,7 @@ notebook_basenames = [
     "marker_performance", 
     "ampseqc_results", 
     "microhap_quantity", 
+    "tidy_microhap", 
     "sample_properties", 
     "paneljudge_markermetrics", 
     "paneljudge_relpower"]
@@ -784,6 +785,25 @@ rule assess_microhap_quantity:
         R -e 'rmarkdown::render("{input.code}", output_format = "all", \
            output_dir = "{rendered_notebook_dir}")'
         """
+# Tidy microhaplotype allele table
+microhap_dir = os.path.join("results", "microhap")
+serialdil2_microhap = os.path.join(
+        microhap_dir, 
+        "serialdil2", 
+        "serialdil2_microhap.tsv")
+rule tidy_microhap_serialdil2:
+    input:
+        expand(seqtab_cigar, run_id=["serialdil2"]), 
+        locus_metadata, 
+        code = os.path.join("workflow", "notebooks", "tidy_microhap.Rmd")
+    output: 
+        multiext(notebooks["tidy_microhap"], ".nb.html", ".pdf", ".md"), 
+        serialdil2_microhap
+    shell:
+        """
+        R -e 'rmarkdown::render("{input.code}", output_format = "all", \
+           output_dir = "{rendered_notebook_dir}")'
+        """
 
 # Reformat target info of other panels to BED format
 chrom_key = os.path.join("resources", "chrom_key.tsv")
@@ -944,7 +964,6 @@ rule apply_variants:
         # as the -H I argument (I verified this).
         "bcftools consensus -s {wildcards.samp} -I -f {input.ref} {input.vcf} "
         "> {output}"
-microhap_dir = os.path.join("results", "microhap")
 mg_microhap_dir = os.path.join(microhap_dir, "MalariaGEN", "{panel}")
 mg_microhap_fasta_dir = os.path.join(mg_microhap_dir, "fasta")
 hapseq = os.path.join(mg_microhap_fasta_dir, "{samp}_hapseq.fa")

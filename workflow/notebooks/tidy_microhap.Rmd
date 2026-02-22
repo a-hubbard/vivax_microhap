@@ -1,0 +1,88 @@
+---
+title: Tidying of Microhaplotype Data for Second Serial Dilution Run
+author: Alfred Hubbard
+output:
+  html_notebook: default
+  pdf_document: default
+  github_document: default
+---
+
+```{r setup, echo = FALSE, message = FALSE, warning = FALSE}
+# Load required libraries ----------------------------------------------
+# These will be referenced without the `package::` construct, and thus 
+# are loaded second to avoid masking
+library(knitr)
+library(magrittr)
+library(tidyverse)
+
+# Don't include code in PDF output
+opts_chunk$set(echo = ! is_latex_output())
+# Set default ggplot2 theme
+theme_set(theme_bw())
+
+# Hardcode parameters. These are not passed as shell arguments because 
+# hardcoded values facilitate development and this document is not 
+# meant to be usable with other projects.
+inp <- list(
+  cigar_table = "../../results/AmpSeq/serialdil2/asv2cigar/seqtab_cigar.tsv", 
+  locus_metadata = "../../results/locus_metadata.tsv"
+)
+out <- list(
+  allele_table = "../../results/microhap/serialdil2/serialdil2_microhap.tsv"
+)
+```
+
+```{r}
+# Read in final, filtered data -----------------------------------------
+allele_table <- read_tsv(
+    inp$cigar_table, 
+    col_types = cols(.default = col_integer(), sample = col_character()), 
+    progress = FALSE
+  ) %>%
+  pivot_longer(-sample, names_to = "locus_cigar", values_to = "n_read") %>%
+  separate_wider_delim(locus_cigar, ",", names = c("locus_pos", "cigar")) %>%
+  rename(rep_id = sample) %>%
+  # Remove explicit missing data
+  filter(n_read > 0)
+
+# Read and join locus names --------------------------------------------
+locus_metadata <- read_tsv(
+    inp$locus_metadata, 
+    col_types = cols(
+      .default = col_character(), 
+      start_pos = col_integer(), 
+      end_pos = col_integer()
+    ), 
+    progress = FALSE
+  ) %>%
+  select(locus, chrom, start_pos, end_pos, strand) %>%
+  unite(start_end, start_pos, end_pos, sep = "-") %>%
+  unite(locus_pos, chrom, start_end, sep = ":") %>%
+  unite(locus_pos, locus_pos, strand, sep = "(") %>%
+  mutate(locus_pos = str_c(locus_pos, ")"))
+allele_table <- allele_table %>%
+  left_join(locus_metadata, by = "locus_pos") %>%
+  select(-locus_pos)
+
+# Compute WSAF and filter extremely rare alleles -----------------------
+allele_table <- allele_table %>%
+  group_by(rep_id, locus) %>%
+  mutate(wsaf = n_read / sum(n_read)) %>%
+  ungroup() %>%
+  filter(n_read >= 5, wsaf >= 0.01)
+
+# Extract replicate metadata from ID -----------------------------------
+allele_table <- allele_table %>%
+  separate_wider_delim(
+    rep_id, 
+    "-", 
+    names = c(NA, "specimen_id", "parasitemia", "protocol")
+  ) %>%
+  mutate(parasitemia = as.integer(parasitemia)) %>%
+  # Keep protocol "v2" over "v1" when both present
+  filter(parasitemia != 100 | protocol == "v2")
+
+# Save filtered data
+allele_table %>%
+  write_tsv(out$allele_table)
+```
