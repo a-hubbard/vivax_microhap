@@ -207,7 +207,7 @@ marker_metrics <- af %>%
   select(-af) %>%
   unnest(marker_metrics)
 
-# Add population labels ------------------------------------------------
+# Add labels for plots -------------------------------------------------
 pop_lbls <- tribble(
     ~Population, ~pop_lbl, 
     "AF", "Ethiopia", 
@@ -215,7 +215,9 @@ pop_lbls <- tribble(
     "LAM", "Latin America"
   )
 marker_metrics <- marker_metrics %>%
-  left_join(pop_lbls, by = "Population")
+  left_join(pop_lbls, by = "Population") %>%
+  mutate(panel_lbl = panel) %>%
+  mutate(panel_lbl = str_replace("Kleinecke", "Kleinecke et al."))
 
 # Visualize cardinality versus effective cardinality -------------------
 marker_metrics %>%

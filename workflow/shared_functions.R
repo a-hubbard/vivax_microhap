@@ -58,7 +58,7 @@ card_vs_effcard <- function(marker_metrics) {
     ggplot(mapping = aes(x = cardinality, y = eff_cardinality)) +
     geom_point(shape = 95, size = 3) +
     geom_abline(slope = 1, intercept = 0) +
-    facet_grid(rows = vars(panel), cols = vars(pop_lbl)) +
+    facet_grid(rows = vars(panel_lbl), cols = vars(pop_lbl)) +
     scale_x_continuous(limits = scale_lim) +
     scale_y_continuous(limits = scale_lim) +
     labs(x = "Cardinality", y = "Effective Cardinality")
@@ -70,7 +70,7 @@ rhat_ci_width_boxplot <- function(rel_sim_res) {
     mutate(ci_width = ci_97_5 - ci_2_5) %>%
     filter(datagen_r %in% c(0.01, 0.15, 0.25, 0.5, 0.99)) %>%
     mutate(datagen_r = as.character(datagen_r)) %>%
-    ggplot(mapping = aes(y = ci_width, x = datagen_r, color = panel)) +
+    ggplot(mapping = aes(y = ci_width, x = datagen_r, color = panel_lbl)) +
     geom_boxplot() +
     facet_wrap(vars(pop_lbl)) +
     labs(
@@ -84,9 +84,9 @@ rhat_ci_width_boxplot <- function(rel_sim_res) {
 # Compute and plot RMSEs for each data-generating r
 plot_rhat_rmse <- function(rel_sim_res) {
   rel_sim_res %>%
-    group_by(panel, pop_lbl, datagen_r) %>%
+    group_by(panel_lbl, pop_lbl, datagen_r) %>%
     summarize(rmse = sqrt(mean((rhat - datagen_r)^2)), .groups = "drop") %>%
-    ggplot(mapping = aes(x = datagen_r, y = rmse, color = panel)) +
+    ggplot(mapping = aes(x = datagen_r, y = rmse, color = panel_lbl)) +
     geom_line() +
     geom_point() +
     facet_wrap(vars(pop_lbl)) +
