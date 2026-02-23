@@ -75,6 +75,12 @@ if (nrow(reps_wo_all_loci_uci1223) > 0) {
   )
 }
 
+# Summarize read counts ------------------------------------------------
+rl_read_counts_uci1223 <- variant_read_counts_uci1223 %>%
+  # Calculate total reads for each replicate/locus
+  group_by(sample_id, locus_pos) %>%
+  summarize(n_read = sum(n_read), .groups = "drop")
+
 # Read and join locus names --------------------------------------------
 locus_metadata <- read_tsv(
     inp$locus_metadata, 
@@ -88,9 +94,15 @@ locus_metadata <- read_tsv(
   select(locus, chrom, start_pos, end_pos) %>%
   unite(start_end, start_pos, end_pos, sep = "-") %>%
   unite(locus_pos, chrom, start_end, sep = ":")
-variant_read_counts_uci1223 <- variant_read_counts_uci1223 %>%
+rl_read_counts_uci1223 <- rl_read_counts_uci1223 %>%
   left_join(locus_metadata, by = "locus_pos") %>%
   select(-locus_pos)
+
+# Add missing loci that received no amplification ----------------------
+rl_read_counts_uci1223 <- rl_read_counts_uci1223 %>%
+  mutate(locus = factor(locus, levels = unique(locus_metadata$locus))) %>%
+  complete(sample_id, locus, fill = list(n_read = 0)) %>%
+  mutate(locus = as.character(locus))
 
 # Read replicate metadata ----------------------------------------------
 rep_metadata_uci1223 <- read_xlsx(
@@ -128,12 +140,8 @@ sample_ct_values_uci1223 <- rep_metadata_uci1223 %>%
 if (max(sample_ct_values_uci1223$n_ct) > 1) {
   stop("Some sample IDs have more than one Ct value", call. = FALSE)
 }
-
-# Summarize read counts and join metadata ------------------------------
-rl_read_counts_uci1223 <- variant_read_counts_uci1223 %>%
-  # Calculate total reads for each replicate/locus
-  group_by(sample_id, locus) %>%
-  summarize(n_read = sum(n_read), .groups = "drop") %>%
+# Join metadata
+rl_read_counts_uci1223 <- rl_read_counts_uci1223 %>%
   left_join(rep_metadata_uci1223, by = "sample_id")
 
 # Plot reads by replicate and locus ------------------------------------
@@ -220,16 +228,26 @@ if (nrow(reps_wo_all_loci_serialdil2) > 0) {
   )
 }
 
-# Join locus names -----------------------------------------------------
-variant_read_counts_serialdil2 <- variant_read_counts_serialdil2 %>%
-  left_join(locus_metadata, by = "locus_pos") %>%
-  select(-locus_pos)
-
 # Summarize read counts ------------------------------------------------
 rl_read_counts_serialdil2 <- variant_read_counts_serialdil2 %>%
   # Calculate total reads for each replicate/locus
-  group_by(sample_id, well, specimen_id, parasitemia, protocol, locus) %>%
+  group_by(sample_id, well, specimen_id, parasitemia, protocol, locus_pos) %>%
   summarize(n_read = sum(n_read), .groups = "drop")
+
+# Join locus names -----------------------------------------------------
+rl_read_counts_serialdil2 <- rl_read_counts_serialdil2 %>%
+  left_join(locus_metadata, by = "locus_pos") %>%
+  select(-locus_pos)
+
+# Add missing loci that received no amplification ----------------------
+rl_read_counts_serialdil2 <- rl_read_counts_serialdil2 %>%
+  mutate(locus = factor(locus, levels = unique(locus_metadata$locus))) %>%
+  complete(
+    nesting(well, specimen_id, parasitemia, protocol, sample_id), 
+    locus, 
+    fill = list(n_read = 0)
+  ) %>%
+  mutate(locus = as.character(locus))
 
 # Plot reads by replicate and locus ------------------------------------
 for (s in unique(rl_read_counts_serialdil2$specimen_id)) {
