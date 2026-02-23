@@ -1,7 +1,7 @@
 # Create rainbow plots showing the consistency of WSAFs
 
 # Load required libraries ----------------------------------------------
-library(grDevices)
+library(RColorBrewer)
 # These libraries will be referenced without the library name and so 
 # should be loaded second
 library(dplyr)
@@ -35,19 +35,13 @@ plot_sample_locus_wsafs <- function(alleles) {
   # Initialize an empty list to store color mappings
   color_list <- list()
   # Iterate over each locus and generate color mappings
-  for (locus in loci) {
+  for (locus_oi in loci) {
     locus_alleles <- alleles %>% 
-      filter(locus == locus) %>%
-      select(locus, cigar) %>%
-      distinct() %$%
-      cigar
+      filter(locus == locus_oi) %$%
+      unique(cigar)
     
     # Generate rainbow colors for this locus
-    locus_colors <- grDevices::palette.colors(
-      n = length(locus_alleles), 
-      palette = "Paired", 
-      recycle = TRUE
-    )
+    locus_colors <- RColorBrewer::brewer.pal(length(locus_alleles), "Dark2")
     names(locus_colors) <- locus_alleles
     
     # Append to the main list
