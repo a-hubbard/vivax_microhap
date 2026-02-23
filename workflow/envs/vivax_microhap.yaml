@@ -35,6 +35,8 @@ dependencies:
   - r-patchwork
   - r-rstatix
   - r-seqinr
+  - r-grDevices
+  - r-DescTools
   - bioconductor-biostrings
   - bioconductor-msa
   # Required for paneljudge R package

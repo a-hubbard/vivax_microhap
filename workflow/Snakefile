@@ -68,6 +68,7 @@ localrules:
     plot_read_counts_vs_parasitemia, 
     plot_read_counts_by_rep_locus, 
     plot_wsaf_consistency, 
+    plot_replicate_concordance, 
     plot_card_vs_effcard, 
     plot_rhat_ci_width, 
     plot_rhat_rmse, 
@@ -104,6 +105,7 @@ figs = {
     "readcount_heatmap": "suppfig1", 
     "readcount_density_scatter": "fig2", 
     "wsaf_consistency": "suppfig2", 
+    "replicate_concordance": "suppfig3", 
     "paneljudge_cardinality": "fig3", 
     "paneljudge_ci_width": "suppfig4", 
     "paneljudge_rmse": "fig4"}
@@ -1156,6 +1158,21 @@ rule plot_wsaf_consistency:
     output: 
         multiext(
             os.path.join(figdir,figs["wsaf_consistency"]), 
+            ".pdf", 
+            ".png")
+    params:
+        basename = lambda wildcards, output: output[0][:-4]
+    shell: 
+        "Rscript {input.code} "
+        "--allele_table {input.allele_table} "
+        "--out_base {params.basename}"
+rule plot_replicate_concordance:
+    input:
+        allele_table = serialdil2_microhap, 
+        code = os.path.join("workflow", "scripts", "replicate_concordance.R")
+    output: 
+        multiext(
+            os.path.join(figdir,figs["replicate_concordance"]), 
             ".pdf", 
             ".png")
     params:
