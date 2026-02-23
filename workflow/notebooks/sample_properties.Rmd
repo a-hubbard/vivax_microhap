@@ -163,13 +163,13 @@ sample_info_filterbyyear <- sample_info_initialfilter %>%
 # Sample Sizes
 
 In the final analysis set, this leaves us with a sample size of `r 
-nrow(sample_info_filterbyyear)`. The sample sizes for each site are given in the 
-following table:
+nrow(sample_info_filterbyyear)`. The sample sizes for each population are given 
+in the following table:
 
 ```{r}
-# Compute sample sizes by country and site -----------------------------
+# Compute sample sizes by population -----------------------------------
 sample_info_filterbyyear %>%
-  group_by(Country, Site) %>%
+  group_by(Population) %>%
   summarize(n_samp = n(), .groups = "drop")
 ```
 
