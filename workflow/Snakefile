@@ -49,6 +49,7 @@ localrules:
     postproc_dada2, 
     asv2cigar, 
     assess_microhap_quantity, 
+    tidy_microhap_serialdil2, 
     dwnld_ref_gff, 
     unzip_ref_gff, 
     subset_annot, 

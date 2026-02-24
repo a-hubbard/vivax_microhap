@@ -72,7 +72,7 @@ pop_lbls <- tribble(
 rel_sim_res <- rel_sim_res %>%
   left_join(pop_lbls, by = "pop") %>%
   mutate(panel_lbl = panel) %>%
-  mutate(panel_lbl = str_replace("Kleinecke", "Kleinecke et al."))
+  mutate(panel_lbl = str_replace(panel_lbl, "Kleinecke", "Kleinecke et al."))
 
 # Compute and plot 95% CI widths of rhat by data-generating r ----------
 rel_sim_res %>%

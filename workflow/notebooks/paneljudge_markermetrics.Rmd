@@ -217,7 +217,7 @@ pop_lbls <- tribble(
 marker_metrics <- marker_metrics %>%
   left_join(pop_lbls, by = "Population") %>%
   mutate(panel_lbl = panel) %>%
-  mutate(panel_lbl = str_replace("Kleinecke", "Kleinecke et al."))
+  mutate(panel_lbl = str_replace(panel_lbl, "Kleinecke", "Kleinecke et al."))
 
 # Visualize cardinality versus effective cardinality -------------------
 marker_metrics %>%

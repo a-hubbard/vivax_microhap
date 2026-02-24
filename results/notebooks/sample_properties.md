@@ -140,34 +140,21 @@ sample_info_filterbyyear <- sample_info_initialfilter %>%
 # Sample Sizes
 
 In the final analysis set, this leaves us with a sample size of 164. The
-sample sizes for each site are given in the following table:
+sample sizes for each population are given in the following table:
 
 ``` r
-# Compute sample sizes by country and site -----------------------------
+# Compute sample sizes by population -----------------------------------
 sample_info_filterbyyear %>%
-  group_by(Country, Site) %>%
+  group_by(Population) %>%
   summarize(n_samp = n(), .groups = "drop")
 ```
 
-    ## # A tibble: 16 × 3
-    ##    Country  Site                                            n_samp
-    ##    <chr>    <chr>                                            <int>
-    ##  1 Brazil   Manaus                                               8
-    ##  2 Cambodia Oddar Meanchey                                      19
-    ##  3 Colombia Antioquia                                            1
-    ##  4 Colombia Buenaventura                                         3
-    ##  5 Colombia Choco                                                7
-    ##  6 Colombia Colombia                                             2
-    ##  7 Colombia Cordoba                                              1
-    ##  8 Colombia Tierralta                                           16
-    ##  9 Colombia Tumaco                                               2
-    ## 10 Ethiopia Oromia                                              26
-    ## 11 Ethiopia South Nations Nationalities and Peoples' Region     23
-    ## 12 Peru     Delta 1                                              3
-    ## 13 Vietnam  Binh Phuoc                                           8
-    ## 14 Vietnam  Dak O                                                9
-    ## 15 Vietnam  Ho Chi Min                                          18
-    ## 16 Vietnam  Krong Pa                                            18
+    ## # A tibble: 3 × 2
+    ##   Population n_samp
+    ##   <chr>       <int>
+    ## 1 AF             49
+    ## 2 ESEA           72
+    ## 3 LAM            43
 
 # Study Information
 
