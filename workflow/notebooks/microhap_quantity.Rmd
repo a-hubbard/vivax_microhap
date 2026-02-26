@@ -92,11 +92,11 @@ locus_metadata <- read_tsv(
     progress = FALSE
   ) %>%
   select(locus, chrom, start_pos, end_pos) %>%
-  unite(start_end, start_pos, end_pos, sep = "-") %>%
+  unite(start_end, start_pos, end_pos, sep = "-", remove = FALSE) %>%
   unite(locus_pos, chrom, start_end, sep = ":")
 rl_read_counts_uci1223 <- rl_read_counts_uci1223 %>%
   left_join(locus_metadata, by = "locus_pos") %>%
-  select(-locus_pos)
+  select(-locus_pos, -start_pos, -end_pos)
 
 # Add missing loci that received no amplification ----------------------
 rl_read_counts_uci1223 <- rl_read_counts_uci1223 %>%
@@ -249,6 +249,9 @@ rl_read_counts_serialdil2 <- rl_read_counts_serialdil2 %>%
   ) %>%
   mutate(locus = as.character(locus))
 
+# Print read count summary statistics ----------------------------------
+summary(rl_read_counts_serialdil2$n_read)
+
 # Plot reads by replicate and locus ------------------------------------
 for (s in unique(rl_read_counts_serialdil2$specimen_id)) {
   title_lbl <- str_c("Sample", str_sub(s, start = 3L), sep = " ")
@@ -265,6 +268,23 @@ for (s in unique(rl_read_counts_serialdil2$specimen_id)) {
 
 These heatmaps show the number of reads in the final dataset for each
 locus-replicate combination. The plots have been grouped according to specimen.
+
+```{r}
+# Plot target length versus amplification ------------------------------
+target_lengths <- locus_metadata %>%
+  mutate(trg_length = end_pos - start_pos) %>%
+  select(-locus_pos)
+rl_read_counts_serialdil2 %>%
+  group_by(locus) %>%
+  summarize(median_n_read = median(n_read), .groups = "drop") %>%
+  left_join(target_lengths, by = "locus") %>%
+  ggplot(mapping = aes(x = trg_length, y = median_n_read)) +
+  geom_point() +
+  labs(x = "Target Length", y = "Median Read Count")
+```
+
+This plot shows the relationship between the length of the target and the median
+read count.
 
 # Filtering at Each Step
 

@@ -22,10 +22,13 @@ opts <- list(
 )
 arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
-# arg <- list(
-#   window_stats = "../../resources/filtered_windows_tab.txt", 
-#   targets = "../../results/loci2filter/good_amp.csv"
-# )
+if (interactive()) {
+  arg <- list(
+    window_stats = "../../resources/filtered_windows_tab.txt", 
+    targets = "../../results/loci2filter/good_amp.csv", 
+    out_base = "../../results/figs/fig1"
+  )
+}
 
 metric_barplot <- function(stats, metric, label_x_axis = TRUE) {
   if (! label_x_axis) {
@@ -83,7 +86,15 @@ target_stats <- targets %>%
   # purported drug resistance markers) and therefore don't have stats
   filter(! is.na(mean_TD))
 
-# Create and save barplots
+# Print summary statistics ---------------------------------------------
+print("Summary statistics for Tajimia's D:")
+summary(target_stats$mean_TD)
+print("Summary statistics for nucleotide diversity:")
+summary(target_stats$mean_ND)
+print("Summary statistics for FST:")
+summary(target_stats$mean_FST)
+
+# Create and save barplots ---------------------------------------------
 fig <- (
     metric_barplot(target_stats, "mean_ND", label_x_axis = FALSE) / 
     metric_barplot(target_stats, "mean_FST")
