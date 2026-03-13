@@ -8,6 +8,7 @@ library(dplyr)
 library(ggplot2)
 library(magrittr)
 library(optparse)                                                                
+library(purrr)
 library(readr)
 library(stringr)
 library(tidyr)
@@ -23,13 +24,16 @@ if (interactive()) {
     "../../results/microhap/serialdil2/serialdil2_microhap.tsv"
   arg$out_base <- "../../results/figs/suppfig2"
 }
-
 # Create stacked bar plots showing WSAFs for each sample and locus
 # This functions is a lightly-modified version of code shared with me 
 # by Andres Aranda-Diaz, and the idea for this type of plot was 
 # originally developed by Nicholas Hathaway
 plot_sample_locus_wsafs <- function(alleles) {
 
+  # It is important that each allele have a unique name between loci 
+  # for the below to work, so using just a cigar is insufficient
+  alleles <- alleles %>%
+    unite(allele, locus, cigar, sep = ":", remove = FALSE)
   # Get unique locus values
   loci <- unique(alleles$locus)
   # Initialize an empty list to store color mappings
@@ -38,10 +42,16 @@ plot_sample_locus_wsafs <- function(alleles) {
   for (locus_oi in loci) {
     locus_alleles <- alleles %>% 
       filter(locus == locus_oi) %$%
-      unique(cigar)
+      unique(allele)
     
     # Generate rainbow colors for this locus
-    locus_colors <- RColorBrewer::brewer.pal(length(locus_alleles), "Dark2")
+    quiet_brewer_pal <- quietly(RColorBrewer::brewer.pal)
+    locus_colors <- quiet_brewer_pal(length(locus_alleles), "Dark2")[[1]]
+    # If the locus has fewer than three alleles, brewer.pal() will 
+    # throw a warning and still return three colors
+    if (length(locus_colors) > length(locus_alleles)) {
+      locus_colors <- locus_colors[1:length(locus_alleles)]
+    }
     names(locus_colors) <- locus_alleles
     
     # Append to the main list
@@ -82,7 +92,7 @@ plot_sample_locus_wsafs <- function(alleles) {
         ymax = y_max,
         xmin = locus_num - 0.4,
         xmax = locus_num + 0.4,
-        fill = cigar
+        fill = allele
       )
     ) +
     scale_fill_manual(values = combined_colors) +
