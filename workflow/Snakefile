@@ -115,7 +115,7 @@ fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 figs_tables_doc = os.path.join("results", "all_figs.pdf")
 figs_tables_doc_flag = os.path.join(".flags", "push_figs_tables_doc")
 supp_texts_dir = os.path.join("results", "supp_texts")
-supp_texts = {"may2022": "supptext1"}
+supp_texts = {"may2022": "supptext2"}
 supp_text_flag_template = os.path.join(".flags", "push_supptext_{supptext}")
 # Other outputs
 locus_metadata = os.path.join("results", "locus_metadata.tsv")

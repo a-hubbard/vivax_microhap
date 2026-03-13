@@ -1,7 +1,7 @@
 ---
 title: "PvGAP: Development of a globally-applicable, highly-multiplexed 
 microhaplotype amplicon panel and protocol for *Plasmodium vivax*"
-subtitle: "Supplemental Text 1: Small Batch Testing to Optimize Protocol"
+subtitle: "Supplemental Text 2: Small Batch Testing to Optimize Protocol"
 author:
 - Alfred Hubbard
 - Edwin Solares
@@ -64,23 +64,35 @@ extracts derived from whole blood.
 
 For DBS samples, two different extraction methods were tested: the Qiagen QIAamp 
 DNA Investigator Kit (from now on referred to as the "kit") and the 
-Saponin/Chelex method [@bereczkyShortReportRapid2005]. In addition, for all 
-samples, three different enrichment strategies were tested: no enrichment, a 
-targeted nested PCR prior to the GT-seq PCR (from here forward referred to as 
-targeted pre-amplification), and selective whole genome amplification (SWGA) 
-prior to the first PCR in the GT-seq protocol.
+Saponin/Chelex method [@bereczkyShortReportRapid2005]. For DBS samples, two 
+different extraction methods were tested: the Qiagen QIAamp DNA Investigator 
+Kit (referred to as the “kit”) and the Saponin/Chelex method
+[@bereczkyShortReportRapid2005]. For the Saponin/Chelex method, DNA extraction 
+followed the protocol  described by Bereczky et al. 
+[@bereczkyShortReportRapid2005], except that the final elution volume was
+200 µL. For the kit-based extraction method, we followed the manufacturer’s
+protocol for “Isolation of Total DNA from FTA and Guthrie Cards,” except that 
+the final elution volume was 200 µL.
+
+In addition, for all samples, three different enrichment strategies were 
+tested: no enrichment, a targeted nested PCR prior to the GT-seq PCR 
+(from here forward referred to as targeted pre-amplification), and selective
+whole genome amplification (SWGA) prior to the first PCR in the GT-seq protocol.
 
 When SWGA was used, we performed the reaction and bead cleanup according to the 
 established protocol [@cowellSelectiveWholeGenomeAmplification2017]. When 
 targeted pre-amplification was performed, nested reaction mixtures and 
 amplification were conducted following the same conditions as PCR 1 of the 
-GT-seq protocol.
+GT-seq protocol. 
 
 Following enrichment, the protocol consists of an initial PCR with primers for 
 amplicon targets containing adapter sequences, an enzymatic cleanup of PCR 
 products, a second PCR for normalization and incorporation of dual indexing tags 
 (Nate’s plates), and bead size selection. Libraries were sequenced on an 
 Illumina MiSeq with a 500 cycle kit in paired-end mode.
+
+Detailed library preparation protocols for both enrichment strategies are 
+provided in Supplementary Text 3 and 4.
 
 ## Sequence analysis
 
