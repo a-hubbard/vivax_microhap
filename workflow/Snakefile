@@ -73,11 +73,11 @@ localrules:
     plot_card_vs_effcard, 
     plot_rhat_ci_width, 
     plot_rhat_rmse, 
-    compile_figs_tables, 
+    compile_supp_figs, 
     compile_may2022_supp_text, 
     push_results_notebooks, 
     push_figs, 
-    push_figs_tables_doc, 
+    push_suppfigs_doc, 
     push_supp_texts, 
     clean
 
@@ -112,8 +112,8 @@ figs = {
     "paneljudge_rmse": "fig4"}
 fig_flag_template = os.path.join(".flags", "push_fig_{fig}")
 # Documents
-figs_tables_doc = os.path.join("results", "all_figs.pdf")
-figs_tables_doc_flag = os.path.join(".flags", "push_figs_tables_doc")
+suppfigs_doc = os.path.join("results", "suppfigs.pdf")
+suppfigs_doc_flag = os.path.join(".flags", "push_suppfigs_doc")
 supp_texts_dir = os.path.join("results", "supp_texts")
 supp_texts = {"may2022": "supptext2"}
 supp_text_flag_template = os.path.join(".flags", "push_supptext_{supptext}")
@@ -130,7 +130,7 @@ rule all:
         expand(nb_flag_template, nb=notebook_basenames), 
         expand(os.path.join(figdir,"{fig}.png"), fig=list(figs.values())), 
         expand(fig_flag_template, fig=list(figs.values())), 
-        figs_tables_doc_flag, 
+        suppfigs_doc_flag, 
         expand(supp_text_flag_template, supptext=list(supp_texts.values())), 
         locus_metadata, 
         expand(multiqc_report, run_id=["UCI1223","serialdil1","serialdil2"])
@@ -148,7 +148,7 @@ rule replicate:
         expand(
             os.path.join(supp_texts_dir,"{supptext}.pdf"), 
             supptext=list(supp_texts.values())), 
-        figs_tables_doc, 
+        suppfigs_doc, 
         locus_metadata, 
         expand(multiqc_report, run_id=["UCI1223","serialdil1","serialdil2"])
 
@@ -1251,11 +1251,11 @@ rule compile_may2022_supp_text:
         """
 
 # Make PDF with all figures and tables
-rule compile_figs_tables:
+rule compile_supp_figs:
     input:
         expand(os.path.join(figdir,"{fig}.pdf"), fig=list(figs.values())), 
-        code = os.path.join("workflow", "notebooks", "all_figs.Rmd")
-    output: figs_tables_doc
+        code = os.path.join("workflow", "notebooks", "suppfigs.Rmd")
+    output: suppfigs_doc
     shell:
         """
         R -e 'rmarkdown::render("{input.code}", output_dir = "results")'
@@ -1273,9 +1273,9 @@ rule push_figs:
     output: touch(fig_flag_template)
     priority: -1
     shell: "rclone copy {input} {cloud_dir}/figs --drive-shared-with-me"
-rule push_figs_tables_doc:
-    input: figs_tables_doc
-    output: touch(figs_tables_doc_flag)
+rule push_suppfigs_doc:
+    input: suppfigs_doc
+    output: touch(suppfigs_doc_flag)
     priority: -1
     shell: "rclone copy {input} {cloud_dir} --drive-shared-with-me"
 rule push_supp_texts:
