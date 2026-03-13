@@ -92,7 +92,7 @@ products, a second PCR for normalization and incorporation of dual indexing tags
 Illumina MiSeq with a 500 cycle kit in paired-end mode.
 
 Detailed library preparation protocols for both enrichment strategies are 
-provided in Supplementary Text 3 and 4.
+provided in Supplemental Text 3 and 4.
 
 ## Sequence analysis
 
