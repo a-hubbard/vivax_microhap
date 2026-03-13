@@ -147,7 +147,7 @@ fig <- allele_table %>%
     row_lbl = str_c(
       "Sample: ", 
       specimen_id, 
-      ", Parasitemia: ", 
+      ", Parasite Copy Number: ", 
       parasitemia, 
       ", Rep: ", 
       rep_num

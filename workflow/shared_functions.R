@@ -32,7 +32,7 @@ pct_good_amp_vs_parasitemia <- function(data_tib) {
     geom_smooth(method = "lm", formula = "y ~ log10(x)") +
     scale_x_continuous(trans = "log10") +
     labs(
-      x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
+      x = expression("Parasite Copies" ~ "/" ~ mu ~ "L)"), 
       y = expression("Percentage of Loci with" >= "10 Reads")
     )
 }

@@ -59,13 +59,13 @@ rep_ccc_nomiss <- rep_data_long %>%
   ) %>%
   # Only keep unique pairs (avoid duplicates and self-comparisons)
   filter(rep_num_a < rep_num_b) %>%
-  group_by(parasitemia) %>%
+  group_by(parasitemia, specimen_id) %>%
   summarise(
     ccc = list(DescTools::CCC(wsaf_a, wsaf_b)$rho.c),
     .groups = "drop"
   ) %>%
   unnest(ccc) %>%
-  mutate(missing_cond = "No FPs and FNs")
+  mutate(missing_cond = "Only Alleles Present in Both Replicates")
 
 # Create combinations and compute CCC, including missing data ----------
 rep_data_long_inclmiss <- rep_data_long %>%
@@ -84,13 +84,13 @@ rep_ccc_inclmiss <- rep_data_long_inclmiss %>%
   ) %>%
   # Only keep unique pairs (avoid duplicates and self-comparisons)
   filter(rep_num_a < rep_num_b) %>%
-  group_by(parasitemia) %>%
+  group_by(parasitemia, specimen_id) %>%
   summarise(
     ccc = list(DescTools::CCC(wsaf_a, wsaf_b)$rho.c),
     .groups = "drop"
   ) %>%
   unnest(ccc) %>%
-  mutate(missing_cond = "Incl. FPs and FNs")
+  mutate(missing_cond = "All Alleles")
 rep_ccc <- bind_rows(rep_ccc_nomiss, rep_ccc_inclmiss)
 
 # Plot and save --------------------------------------------------------
@@ -103,18 +103,24 @@ fig <- rep_ccc %>%
       ordered = TRUE
     )
   ) %>%
-  ggplot(mapping = aes(x = parasitemia, y = est)) +
-  geom_point(size = 3) +
+  ggplot(mapping = aes(x = parasitemia, y = est, color = specimen_id)) +
+  geom_point(
+    size = 3, 
+    position = position_dodge(width = 0.5)
+  ) +
   geom_errorbar(
     mapping = aes(ymin = lwr.ci, ymax = upr.ci), 
     width = 0, 
-    linewidth = 1
+    linewidth = 1, 
+    position = position_dodge(width = 0.5)
   ) +
-  facet_wrap(vars(missing_cond)) +
+  facet_wrap(vars(missing_cond), nrow = 2) +
   labs(
-    x = expression("Parasite Density (parasites" ~ "/" ~ mu ~ "L)"), 
-    y = "Concordance Correlation Coefficient"
-  )
+    x = expression("Parasite Copies" ~ "/" ~ mu ~ "L)"), 
+    y = "Concordance Correlation Coefficient", 
+    color = "Sample ID"
+  ) +
+  theme(legend.position = "bottom")
 w <- 8
 h <- 5.5
 ggsave(
