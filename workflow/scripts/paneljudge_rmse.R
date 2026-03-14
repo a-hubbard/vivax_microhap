@@ -23,7 +23,7 @@ arg <- parse_args(OptionParser(option_list = opts))
 # Arguments used for development
 if (interactive()) {
   arg <- list(
-    rel_sim_res = "../../results/rel_sim_all.tsv", 
+    rel_sim_res = "../../results/rel_sim_res_all.tsv", 
     shared_functions = "../shared_functions.R", 
     out_base = "../../results/figs/fig4"
   )
@@ -42,7 +42,8 @@ rel_sim_res <- read_tsv(
       panel = col_character(), 
       pop = col_character(), 
       pair_num = col_integer(), 
-      pop_lbl = col_character()
+      pop_lbl = col_character(), 
+      panel_lbl = col_character()
     ), 
     progress = FALSE
   )
