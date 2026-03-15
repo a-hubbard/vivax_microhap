@@ -60,14 +60,14 @@ confidence interval of the estimate. Different colors distinguish different
 samples. Note that not all samples were evaluated at all parasite copy 
 numbers. The top facet shows the concordance for all alleles, whereas the 
 bottom shows the concordance calculated only on alleles that are present in 
-both replicates.
+both replicates of each pair.
 
 ```{r}
 include_graphics("../../results/figs/suppfig4.pdf")
 ```
 
 **Supplemental Figure 4:** Distribution of the 95% confidence interval widths of $\hat{r}$ for each 
-data-generating r value, as simulated by paneljudge. Facets separate results 
-for different populations, and boxplot color indicates the marker panel. For 
-clarity, only data-generating r values of 0.01, 0.15, 0.25, 0.5, and 0.99 
+data-generating *r* value, as simulated by paneljudge. Facets separate results 
+for different populations, and boxplot color identifies the marker panel. For 
+clarity, only data-generating *r* values of 0.01, 0.15, 0.25, 0.5, and 0.99 
 are included. The whiskers are Tukey-style and extend to a maximum of 1.5 * IQR.
