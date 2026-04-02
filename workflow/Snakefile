@@ -1110,7 +1110,8 @@ rule plot_panel_target_metrics:
     output: 
         multiext(os.path.join(figdir,figs["panel_target_metrics"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
@@ -1127,7 +1128,8 @@ rule plot_read_counts_vs_parasitemia:
     output: 
         multiext(os.path.join(figdir,figs["readcount_density_scatter"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
@@ -1144,7 +1146,8 @@ rule plot_read_counts_by_rep_locus:
         multiext(
             os.path.join(figdir,figs["readcount_heatmap"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
@@ -1160,7 +1163,8 @@ rule plot_wsaf_consistency:
         multiext(
             os.path.join(figdir,figs["wsaf_consistency"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
@@ -1175,7 +1179,8 @@ rule plot_replicate_concordance:
         multiext(
             os.path.join(figdir,figs["replicate_concordance"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
@@ -1191,7 +1196,8 @@ rule plot_card_vs_effcard:
         multiext(
             os.path.join(figdir,figs["paneljudge_cardinality"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
@@ -1208,7 +1214,8 @@ rule plot_rhat_ci_width:
         multiext(
             os.path.join(figdir,figs["paneljudge_ci_width"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 
@@ -1225,7 +1232,8 @@ rule plot_rhat_rmse:
         multiext(
             os.path.join(figdir,figs["paneljudge_rmse"]), 
             ".pdf", 
-            ".png")
+            ".png", 
+			".eps")
     params:
         basename = lambda wildcards, output: output[0][:-4]
     shell: 

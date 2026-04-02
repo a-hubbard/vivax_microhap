@@ -68,3 +68,10 @@ ggsave(
   height = h, 
   units = "in"
 )
+ggsave(
+  str_c(arg$out_base, ".eps"), 
+  plot = fig, 
+  width = w, 
+  height = h, 
+  units = "in"
+)
