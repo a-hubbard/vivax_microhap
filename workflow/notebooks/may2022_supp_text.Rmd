@@ -64,10 +64,10 @@ extracts derived from whole blood.
 
 For DBS samples, two different extraction methods were tested: the Qiagen QIAamp 
 DNA Investigator Kit (from now on referred to as the "kit") and the 
-Saponin/Chelex method [@bereczkyShortReportRapid2005]. For DBS samples, two 
+Chelex/saponin method [@bereczkyShortReportRapid2005]. For DBS samples, two 
 different extraction methods were tested: the Qiagen QIAamp DNA Investigator 
-Kit (referred to as the “kit”) and the Saponin/Chelex method
-[@bereczkyShortReportRapid2005]. For the Saponin/Chelex method, DNA extraction 
+Kit (referred to as the “kit”) and the Chelex/saponin method
+[@bereczkyShortReportRapid2005]. For the Chelex/saponin method, DNA extraction 
 followed the protocol  described by Bereczky et al. 
 [@bereczkyShortReportRapid2005], except that the final elution volume was
 200 µL. For the kit-based extraction method, we followed the manufacturer’s
